@@ -127,6 +127,29 @@ _capture_active: dict[str, bool] = {}
 _capture_steps: dict[str, list[dict]] = {}  # sandbox_id -> [{command, output}, ...]
 _templates: dict[str, dict] = {}  # template_id -> {name, steps, preset?}
 MAX_AGENT_LOG_LINES = 200
+MAX_LIFECYCLE_EVENTS = 500
+_lifecycle_events: list[dict] = []  # append-only event log for graph UI
+
+
+def _emit_lifecycle_event(
+    event_type: str,
+    sandbox_id: str | None = None,
+    template_id: str | None = None,
+    preset: str | None = None,
+    label: str | None = None,
+) -> None:
+    ev = {
+        "id": str(uuid.uuid4())[:8],
+        "type": event_type,
+        "ts": time.time(),
+        "sandbox_id": sandbox_id,
+        "template_id": template_id,
+        "preset": preset,
+        "label": label,
+    }
+    _lifecycle_events.append(ev)
+    if len(_lifecycle_events) > MAX_LIFECYCLE_EVENTS:
+        _lifecycle_events[:] = _lifecycle_events[-MAX_LIFECYCLE_EVENTS:]
 
 # Ensure backend/.env (if present) populates env before we derive LLM config.
 _load_backend_env()
@@ -313,6 +336,13 @@ def launch(request: Request, req: LaunchRequest):
         "template_id": template_id,
         "init_goal": init_goal,
     }
+    _emit_lifecycle_event(
+        "launch",
+        sandbox_id=sandbox_id,
+        preset=preset,
+        template_id=template_id,
+        label=(goal[:40] + "…") if goal and len(goal) > 40 else (goal or None),
+    )
     url = f"http://{TAILSCALE_IP}:{port}"
     return {
         "sandbox_id": sandbox_id,
@@ -360,6 +390,7 @@ def agent_log(req: AgentLogRequest):
 @app.post("/destroy/{sandbox_id}")
 def destroy(sandbox_id: str):
     """Stop container and kill agent. Always releases port."""
+    _emit_lifecycle_event("destroy", sandbox_id=sandbox_id)
     manager = get_agent_manager()
     manager.kill(sandbox_id)
     _containers.pop(sandbox_id, None)
@@ -388,6 +419,7 @@ def reset(sandbox_id: str, request: Request):
     meta = _sandbox_meta.get(sandbox_id)
     if not meta:
         raise HTTPException(status_code=404, detail="Sandbox not found")
+    _emit_lifecycle_event("destroy", sandbox_id=sandbox_id)
     preset = meta["preset"]
     config = meta.get("config") or {}
     goal = meta["goal"]
@@ -404,6 +436,7 @@ def capture_start(sandbox_id: str):
         raise HTTPException(status_code=404, detail="Sandbox not found")
     _capture_active[sandbox_id] = True
     _capture_steps[sandbox_id] = []
+    _emit_lifecycle_event("capture_start", sandbox_id=sandbox_id)
     return {"ok": True, "capture_active": True}
 
 
@@ -415,15 +448,23 @@ def capture_stop(sandbox_id: str, req: CaptureStopRequest):
     _capture_steps[sandbox_id] = []
 
     template_id = None
+    template_name = None
     if req.save_as_template:
         template_id = str(uuid.uuid4())[:8]
         meta = _sandbox_meta.get(sandbox_id, {})
         preset = meta.get("preset", "preset")
+        template_name = (req.name or "Unnamed").strip() or "Unnamed"
         _templates[template_id] = {
-            "name": (req.name or "Unnamed").strip() or "Unnamed",
+            "name": template_name,
             "preset": preset,
             "steps": steps_copy,
         }
+    _emit_lifecycle_event(
+        "capture_stop",
+        sandbox_id=sandbox_id,
+        template_id=template_id,
+        label=template_name,
+    )
     message = "Capture stopped."
     if req.save_as_template:
         message = f"Template saved with {len(steps_copy)} step(s). Use it in 'Template (replay)' and launch a new sandbox." if steps_copy else (
@@ -527,6 +568,15 @@ def _destroy_sandbox(sandbox_id: str) -> None:
             c.kill()
         except Exception:
             pass
+
+
+@app.get("/lifecycle-events")
+def lifecycle_events(limit: int | None = None):
+    """Return lifecycle event log for the graph UI. Optional ?limit=N."""
+    events = list(_lifecycle_events)
+    if limit is not None and limit > 0:
+        events = events[-limit:]
+    return {"events": events}
 
 
 @app.get("/status")

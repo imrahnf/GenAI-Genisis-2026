@@ -33,4 +33,10 @@
     @apply inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-stone-600;
     @apply hover:bg-rose-50 hover:text-rose-600 transition;
   }
+
+  /* Lifecycle graph: ensure edge lines are visible */
+  .lifecycle-graph .react-flow__edge-path {
+    stroke: #78716c;
+    stroke-width: 2;
+  }
 }

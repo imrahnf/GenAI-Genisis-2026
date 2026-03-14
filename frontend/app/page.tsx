@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, RotateCcw, Trash2, Cpu, Activity, Clock, ExternalLink, Video } from "lucide-react";
+import LifecycleGraph, { type LifecycleEvent } from "./components/LifecycleGraph";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -57,6 +58,7 @@ export default function Home() {
   const [initGoal, setInitGoal] = useState("");
   const [sandboxes, setSandboxes] = useState<Sandbox[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [lifecycleEvents, setLifecycleEvents] = useState<LifecycleEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -94,6 +96,16 @@ export default function Home() {
       setTemplates(data.templates || []);
     } catch {
       setTemplates([]);
+    }
+  }, []);
+
+  const fetchLifecycleEvents = useCallback(async () => {
+    try {
+      const r = await fetch(`${API_BASE}/lifecycle-events`);
+      const data = await r.json();
+      setLifecycleEvents(data.events || []);
+    } catch {
+      setLifecycleEvents([]);
     }
   }, []);
 
@@ -145,6 +157,12 @@ export default function Home() {
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
+
+  useEffect(() => {
+    fetchLifecycleEvents();
+    const t = setInterval(fetchLifecycleEvents, 4000);
+    return () => clearInterval(t);
+  }, [fetchLifecycleEvents]);
 
   useEffect(() => {
     if (!selectedPreset) return;
@@ -579,6 +597,21 @@ export default function Home() {
 
       {error && <p className="mb-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
       {successMessage && <p className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{successMessage}</p>}
+
+      <section className="mb-8">
+        <h2 className="mb-1 text-sm font-semibold text-stone-900">Lifecycle</h2>
+        <p className="mb-4 text-xs text-stone-500">Event flow: launches (green), recording (red), replays (blue), destroyed (×).</p>
+        {lifecycleEvents.length === 0 ? (
+          <p className="rounded-2xl border border-stone-200 bg-stone-50/50 px-6 py-12 text-center text-sm text-stone-500">
+            No events yet. Launch a sandbox to see the lifecycle graph.
+          </p>
+        ) : (
+          <LifecycleGraph
+            events={lifecycleEvents}
+            activeSandboxIds={new Set(sandboxes.map((s) => s.sandbox_id))}
+          />
+        )}
+      </section>
 
       <section>
         <h2 className="mb-1 text-sm font-semibold text-stone-900">Active sandboxes</h2>
