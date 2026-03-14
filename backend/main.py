@@ -135,6 +135,7 @@ class LaunchRequest(BaseModel):
     config: dict | None = None
     expires_in: int | None = None  # seconds until auto-destroy
     template_id: str | None = None  # replay mode
+    init_goal: str | None = None  # run once when container is up, then goal runs continuously
 
 
 class AgentLogRequest(BaseModel):
@@ -179,6 +180,7 @@ def launch(request: Request, req: LaunchRequest):
     config = req.config
     template_id = req.template_id
     expires_in = req.expires_in
+    init_goal = (req.init_goal or "").strip() or None
 
     image = get_image_for_preset(preset)
     if not image:
@@ -214,6 +216,7 @@ def launch(request: Request, req: LaunchRequest):
         orchestrator_url=agent_orchestrator_url,
         template_id=template_id,
         preset=preset,
+        init_goal=init_goal,
     ):
         try:
             c = docker.containers.get(f"demoforge-{sandbox_id}")
@@ -231,6 +234,7 @@ def launch(request: Request, req: LaunchRequest):
         "goal": goal,
         "expires_at": expiry_at,
         "template_id": template_id,
+        "init_goal": init_goal,
     }
     url = f"http://{TAILSCALE_IP}:{port}"
     return {
@@ -309,7 +313,8 @@ def reset(sandbox_id: str, request: Request):
     goal = meta["goal"]
     template_id = meta.get("template_id")
     _destroy_sandbox(sandbox_id)
-    req = LaunchRequest(preset=preset, goal=goal, config=config, expires_in=None, template_id=template_id)
+    init_goal = meta.get("init_goal")
+    req = LaunchRequest(preset=preset, goal=goal, config=config, expires_in=None, template_id=template_id, init_goal=init_goal)
     return launch(request, req)
 
 

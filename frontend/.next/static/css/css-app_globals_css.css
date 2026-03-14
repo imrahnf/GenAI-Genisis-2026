@@ -72,6 +72,22 @@ body {
   margin-bottom: 0.25rem;
 }
 
+.preset-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.preset-chip {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  background: #f0f0f0;
+  color: #555;
+}
+
 .preset-desc {
   display: block;
   font-size: 0.8rem;
@@ -278,7 +294,10 @@ body {
 .sandboxes-table .badge {
   font-size: 0.7rem;
   margin-left: 0.35rem;
-  color: #666;
+  color: #555;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: #f0f0f0;
 }
 
 .sandboxes-table .logs-cell {

@@ -40,8 +40,8 @@ class AgentManager:
     def release_port(self, port: int) -> None:
         self._used_ports.discard(port)
 
-    def spawn(self, sandbox_id: str, port: int, goal: str, orchestrator_url: str | None = None, template_id: str | None = None, preset: str | None = None) -> bool:
-        """Start agent.py as subprocess. Returns True if started. If template_id set, agent runs in replay mode."""
+    def spawn(self, sandbox_id: str, port: int, goal: str, orchestrator_url: str | None = None, template_id: str | None = None, preset: str | None = None, init_goal: str | None = None) -> bool:
+        """Start agent.py as subprocess. Returns True if started. If template_id set, agent runs in replay mode. If init_goal set, agent runs that once then continues with goal."""
         if sandbox_id in self._agents:
             return False
         backend_dir = os.path.dirname(os.path.abspath(__file__))
@@ -56,6 +56,8 @@ class AgentManager:
             env["DEMOFORGE_TEMPLATE_ID"] = template_id
         if preset:
             env["DEMOFORGE_PRESET"] = preset
+        if init_goal and init_goal.strip():
+            env["DEMOFORGE_INIT_GOAL"] = init_goal.strip()
         try:
             proc = subprocess.Popen(
                 [sys.executable, agent_script],

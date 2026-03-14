@@ -51,6 +51,7 @@ export default function Home() {
   const [configJson, setConfigJson] = useState("{}");
   const [configState, setConfigState] = useState<Record<string, string | number | boolean>>({});
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
+  const [initGoal, setInitGoal] = useState("");
   const [sandboxes, setSandboxes] = useState<Sandbox[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
@@ -128,6 +129,7 @@ export default function Home() {
       );
     }
     setExpiresIn(null);
+    setInitGoal("");
   }, [selectedPreset, presets]);
 
   const handleLaunch = async (e: React.FormEvent) => {
@@ -163,6 +165,7 @@ export default function Home() {
           goal,
           config,
           expires_in: expiresIn ?? undefined,
+          init_goal: initGoal.trim() || undefined,
         }),
       });
       const data = await r.json();
@@ -257,6 +260,10 @@ export default function Home() {
               onClick={() => setSelectedPreset(selectedPreset === p.id ? null : p.id)}
             >
               <span className="preset-name">{p.name}</span>
+              <div className="preset-meta">
+                <span className="preset-chip">Flask · SQLite</span>
+                {p.synthetic_data && <span className="preset-chip">Synthetic data</span>}
+              </div>
               <span className="preset-desc">{p.description}</span>
             </button>
           ))}
@@ -280,6 +287,12 @@ export default function Home() {
               <div className="field">
                 <label>Agent goal</label>
                 <textarea value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="e.g. Add a new food every 10 seconds." rows={2} />
+                <span className="field-hint">Runs continuously until the sandbox is destroyed.</span>
+              </div>
+              <div className="field">
+                <label>Init goal (optional)</label>
+                <textarea value={initGoal} onChange={(e) => setInitGoal(e.target.value)} placeholder="e.g. Seed the database with 50 users" rows={1} />
+                <span className="field-hint">Run once when the container is up, then the agent goal above runs continuously. Leave empty to skip.</span>
               </div>
               {p?.config_schema && Object.keys(p.config_schema).length > 0 ? (
                 <>

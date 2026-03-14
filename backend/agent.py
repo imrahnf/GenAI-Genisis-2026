@@ -122,6 +122,17 @@ def _parse_command(reply: str) -> str:
     return first
 
 
+def _strip_trailing_done(cmd: str) -> str:
+    """Remove trailing ' && DONE' or ' && echo DONE' so the shell doesn't try to run DONE as a command."""
+    if not cmd or not cmd.strip():
+        return cmd
+    cmd = cmd.strip()
+    for suffix in (" && DONE", " && echo DONE"):
+        if cmd.endswith(suffix):
+            return cmd[: -len(suffix)].strip()
+    return cmd
+
+
 FALLBACK_FOODS = ["Pizza", "Sushi", "Tacos", "Sigma", "Aura", "Vibes", "Waffles", "Curry", "Salad", "Soup", "Burger"]
 
 
@@ -232,8 +243,9 @@ def _system_prompt_from_manifest(manifest: dict, base_url: str, goal: str) -> st
         parts.append("")
     parts.append(
         "CRITICAL RULES:\n"
-        "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE.\n"
+        "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE. Do NOT append '&& DONE' or '&& echo DONE' to the command.\n"
         "- If you are unsure what to do next, output DONE.\n"
+        "- Use the minimal set of API calls that match the goal. If the goal is to create (a) single account(s) or run a transfer, use POST /api/accounts once per new account and POST /api/transfer; use POST /api/seed ONLY when the goal explicitly asks to seed or create many users (e.g. 'seed 100 users').\n"
         "- You may combine multiple API calls in one shell command using simple loops or &&, e.g.:\n"
         "  for i in $(seq 1 5); do curl ...; done\n"
         "- You may only use shell builtins plus curl and echo. Never use python, rm, apt, brew, or any file-system or package-manager commands.\n"
@@ -280,7 +292,8 @@ def main() -> None:
             time.sleep(INTERVAL_SEC)
         return
 
-    _log("info", f"Agent started. Goal: {goal}. Sandbox at {base_url}. Ollama: {HAS_OLLAMA}")
+    init_goal = os.environ.get("DEMOFORGE_INIT_GOAL", "").strip()
+    _log("info", f"Agent started. Goal: {goal}. Sandbox at {base_url}. Ollama: {HAS_OLLAMA}" + (f" Init goal: {init_goal}" if init_goal else ""))
 
     manifest = _fetch_manifest(base_url)
     if manifest and manifest.get("endpoints"):
@@ -296,8 +309,9 @@ def main() -> None:
             f"Example create: curl -X POST {base_url}/api/accounts -H 'Content-Type: application/json' -d '{{\"name\":\"Alice\",\"initial_balance\":100}}'\n"
             f"Example transfer: curl -X POST {base_url}/api/transfer -H 'Content-Type: application/json' -d '{{\"from_id\":1,\"to_id\":2,\"amount\":10}}'\n\n"
             "CRITICAL RULES:\n"
-            "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE.\n"
+            "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE. Do NOT append '&& DONE' or '&& echo DONE' to the command.\n"
             "- If you are unsure what to do next, output DONE.\n"
+            "- Use the minimal set of API calls that match the goal. For 'create an account and run a transfer' use POST /api/accounts once then POST /api/transfer; use POST /api/seed ONLY when the goal explicitly says to seed or create many users.\n"
             "- You may combine multiple API calls in one shell command using simple loops or &&, e.g.:\n"
             "  for i in $(seq 1 5); do curl ...; done\n"
             "- You may only use shell builtins plus curl and echo. Never use python, rm, apt, brew, or any file-system or package-manager commands.\n"
@@ -320,6 +334,71 @@ def main() -> None:
         )
     messages = [{"role": "system", "content": system}]
 
+    # Optional init phase: run once with init_goal, then continue with main goal
+    if init_goal and not template_id:
+        init_system = _system_prompt_from_manifest(manifest, base_url, init_goal) if (manifest and manifest.get("endpoints")) else (
+            f"You are an agent controlling an app at {base_url}. Goal: {init_goal}. Use minimal API calls. Reply with one shell command or DONE. Do NOT append && DONE."
+        )
+        if not (manifest and manifest.get("endpoints")):
+            if PRESET == "bank":
+                init_system = (
+                    f"You are an agent controlling a mini banking app at {base_url}. Goal: {init_goal}. "
+                    "Use POST /api/accounts for single account, POST /api/transfer for transfer. Reply with one command or DONE. Do NOT append && DONE."
+                )
+            else:
+                init_system = (
+                    f"You are an agent controlling a favorite foods app at {base_url}. Goal: {init_goal}. "
+                    "Reply with one command or DONE. Do NOT append && DONE."
+                )
+        init_messages = [{"role": "system", "content": init_system}]
+        _log("info", f"Running init phase: {init_goal}")
+        for _ in range(MAX_STEPS_PER_ROUND):
+            if not _running:
+                break
+            init_messages.append({"role": "user", "content": "What single shell command do you run next? (one line: command or DONE)"})
+            reply = _ask_llm(init_messages, base_url=base_url)
+            init_messages.append({"role": "assistant", "content": reply})
+            cmd = _parse_command(reply) or reply.strip()
+            if not cmd or re.match(r"^\s*DONE\s*$", cmd, re.IGNORECASE):
+                _log("info", "Init phase DONE.")
+                break
+            if cmd.startswith("```") or cmd.lower() in ("shell", "bash", "sh"):
+                cmd = _fallback_curl_add(base_url)
+            elif not (cmd.startswith("curl") or "http" in cmd or "/" in cmd):
+                cmd = _fallback_curl_add(base_url)
+            cmd = _strip_trailing_done(cmd)
+            _log("command", f"Init: {cmd}")
+            code, stdout, stderr = _run_command(cmd)
+            output = f"exit={code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+            _log("output", output[:800])
+            init_messages.append({"role": "user", "content": f"Command output:\n{output}\nWhat's next? (one line: command or DONE)"})
+        _log("info", "Init phase complete, switching to main goal.")
+        # Rebuild system for main goal (may have been manifest-based)
+        if manifest and manifest.get("endpoints"):
+            system = _system_prompt_from_manifest(manifest, base_url, goal)
+        elif PRESET == "bank":
+            system = (
+                f"You are an agent controlling a mini banking app. The app is at {base_url}.\n"
+                f"Goal: {goal}\n\n"
+                "API:\n"
+                "- Create account: POST /api/accounts with JSON {\"name\": \"string\", \"initial_balance\": number}.\n"
+                "- Transfer: POST /api/transfer with JSON {\"from_id\": int, \"to_id\": int, \"amount\": number}.\n\n"
+                f"Example create: curl -X POST {base_url}/api/accounts -H 'Content-Type: application/json' -d '{{\"name\":\"Alice\",\"initial_balance\":100}}'\n"
+                f"Example transfer: curl -X POST {base_url}/api/transfer -H 'Content-Type: application/json' -d '{{\"from_id\":1,\"to_id\":2,\"amount\":10}}'\n\n"
+                "CRITICAL RULES:\n"
+                "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE. Do NOT append '&& DONE' or '&& echo DONE' to the command.\n"
+                "- Use the minimal set of API calls that match the goal. For 'create an account and run a transfer' use POST /api/accounts once then POST /api/transfer; use POST /api/seed ONLY when the goal explicitly says to seed or create many users.\n"
+                "- You may only use shell builtins plus curl and echo. Do NOT use markdown, backticks, or code fences; output the raw command only."
+            )
+        else:
+            system = (
+                f"You are an agent controlling a favorite foods app. The app is at {base_url}.\n"
+                f"Goal: {goal}\n\n"
+                "To add a food, POST to /add with JSON body {\"food\":\"Pizza\"}.\n"
+                "CRITICAL: Reply with ONLY one line: command or DONE. Do NOT append && DONE. Do NOT use markdown."
+            )
+        messages = [{"role": "system", "content": system}]
+
     while _running:
         messages.append({"role": "user", "content": "What single shell command do you run next? (one line: command or DONE; if unsure, output DONE)"})
         _log("info", "Asking LLM for next command...")
@@ -341,6 +420,7 @@ def main() -> None:
                 _log("info", "Reply doesn't look like a command; using fallback curl.")
                 cmd = _fallback_curl_add(base_url)
 
+            cmd = _strip_trailing_done(cmd)
             _log("command", f"Running: {cmd}")
             code, stdout, stderr = _run_command(cmd)
             output = f"exit={code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
