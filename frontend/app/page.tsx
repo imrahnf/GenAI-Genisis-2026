@@ -59,6 +59,10 @@ export default function Home() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [expandedLogs, setExpandedLogs] = useState<string | null>(null);
   const [captureSaveName, setCaptureSaveName] = useState<{ id: string; name: string } | null>(null);
+  const [llmUseRemote, setLlmUseRemote] = useState(false);
+  const [llmBase, setLlmBase] = useState("");
+  const [llmModel, setLlmModel] = useState("");
+  const [llmApiKey, setLlmApiKey] = useState("");
 
   const fetchPresets = useCallback(async () => {
     try {
@@ -90,9 +94,44 @@ export default function Home() {
     }
   }, []);
 
+  const fetchLlmConfig = useCallback(async () => {
+    try {
+      const r = await fetch(`${API_BASE}/llm-config`);
+      const data = await r.json();
+      setLlmUseRemote(Boolean(data.use_remote));
+      setLlmBase(data.base ?? "");
+      setLlmModel(data.model ?? "");
+      setLlmApiKey(data.api_key ?? "");
+    } catch {
+      setLlmUseRemote(false);
+      setLlmBase("");
+      setLlmModel("");
+      setLlmApiKey("");
+    }
+  }, []);
+
+  const persistLlmConfig = useCallback(
+    async (updates: { use_remote?: boolean; base?: string; model?: string; api_key?: string }) => {
+      try {
+        await fetch(`${API_BASE}/llm-config`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        });
+      } catch {
+        // ignore
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     fetchPresets();
   }, [fetchPresets]);
+
+  useEffect(() => {
+    fetchLlmConfig();
+  }, [fetchLlmConfig]);
 
   useEffect(() => {
     fetchStatus();
@@ -247,6 +286,49 @@ export default function Home() {
       <header className="dashboard-header">
         <h1>DemoForge</h1>
         <p className="tagline">On-demand sandboxes · Templates · Lifecycle controls</p>
+        <div className="llm-backend">
+          <span className="llm-label">LLM:</span>
+          <label className="llm-toggle">
+            <input
+              type="checkbox"
+              checked={llmUseRemote}
+              onChange={(e) => {
+                const v = e.target.checked;
+                setLlmUseRemote(v);
+                persistLlmConfig({ use_remote: v });
+              }}
+            />
+            <span>{llmUseRemote ? "Remote (OpenAI-compatible)" : "Local (Ollama)"}</span>
+          </label>
+          {llmUseRemote && (
+            <>
+              <input
+                type="text"
+                className="llm-base"
+                placeholder="Base URL (e.g. http://localhost:8000/v1)"
+                value={llmBase}
+                onChange={(e) => setLlmBase(e.target.value)}
+                onBlur={() => persistLlmConfig({ base: llmBase, model: llmModel, api_key: llmApiKey })}
+              />
+              <input
+                type="text"
+                className="llm-model"
+                placeholder="Model"
+                value={llmModel}
+                onChange={(e) => setLlmModel(e.target.value)}
+                onBlur={() => persistLlmConfig({ base: llmBase, model: llmModel, api_key: llmApiKey })}
+              />
+              <input
+                type="password"
+                className="llm-apikey"
+                placeholder="API key (optional)"
+                value={llmApiKey}
+                onChange={(e) => setLlmApiKey(e.target.value)}
+                onBlur={() => persistLlmConfig({ base: llmBase, model: llmModel, api_key: llmApiKey })}
+              />
+            </>
+          )}
+        </div>
       </header>
 
       <section className="preset-grid">

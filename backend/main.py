@@ -25,6 +25,31 @@ _SANDBOXES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__
 _MANIFEST_CACHE: dict[str, dict] = {}
 
 
+def _load_backend_env() -> None:
+    """Load backend/.env into process env so OPENAI_* etc. are available on startup."""
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.isfile(env_path):
+        return
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for raw in f:
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip()
+                if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+                    value = value[1:-1]
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except Exception:
+        # Ignore .env parse errors; fallback to existing environment.
+        pass
+
+
 def _load_manifest(preset: str) -> dict | None:
     """Load manifest.json for preset. Cached in memory. Returns None if missing or invalid."""
     if preset in _MANIFEST_CACHE:
@@ -103,6 +128,17 @@ _capture_steps: dict[str, list[dict]] = {}  # sandbox_id -> [{command, output}, 
 _templates: dict[str, dict] = {}  # template_id -> {name, steps, preset?}
 MAX_AGENT_LOG_LINES = 200
 
+# Ensure backend/.env (if present) populates env before we derive LLM config.
+_load_backend_env()
+
+# Runtime LLM backend: agents fetch this so switching mid-run takes effect.
+_llm_config = {
+    "use_remote": bool(os.environ.get("OPENAI_COMPATIBLE_BASE")),
+    "base": (os.environ.get("OPENAI_COMPATIBLE_BASE") or "").strip().rstrip("/"),
+    "model": (os.environ.get("OPENAI_COMPATIBLE_MODEL") or "").strip(),
+    "api_key": (os.environ.get("OPENAI_COMPATIBLE_API_KEY") or "").strip(),
+}
+
 
 def get_docker():
     global _docker
@@ -147,6 +183,39 @@ class AgentLogRequest(BaseModel):
 class CaptureStopRequest(BaseModel):
     save_as_template: bool = False
     name: str = "Unnamed template"
+
+
+class LLMConfigUpdate(BaseModel):
+    use_remote: bool | None = None
+    base: str | None = None
+    model: str | None = None
+    api_key: str | None = None
+
+
+@app.get("/llm-config")
+def get_llm_config():
+    """Current LLM backend; agents fetch this so toggling takes effect mid-run."""
+    return {
+        "use_remote": _llm_config["use_remote"],
+        "base": _llm_config["base"],
+        "model": _llm_config["model"],
+        "api_key": _llm_config["api_key"],
+    }
+
+
+@app.patch("/llm-config")
+def update_llm_config(req: LLMConfigUpdate):
+    """Set LLM backend (local vs remote). Affects all agents on their next LLM call."""
+    global _llm_config
+    if req.use_remote is not None:
+        _llm_config["use_remote"] = req.use_remote
+    if req.base is not None:
+        _llm_config["base"] = req.base.strip().rstrip("/")
+    if req.model is not None:
+        _llm_config["model"] = req.model.strip()
+    if req.api_key is not None:
+        _llm_config["api_key"] = req.api_key.strip()
+    return get_llm_config()
 
 
 def _get_docker_or_raise():

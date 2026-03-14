@@ -36,6 +36,12 @@ try:
 except ImportError:
     HAS_REQUESTS = False
 
+try:
+    from openai import OpenAI
+    HAS_OPENAI_CLIENT = True
+except ImportError:
+    HAS_OPENAI_CLIENT = False
+
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
 INTERVAL_SEC = int(os.environ.get("DEMOFORGE_AGENT_INTERVAL", "3"))
 COMMAND_TIMEOUT = int(os.environ.get("DEMOFORGE_COMMAND_TIMEOUT", "15"))
@@ -45,11 +51,14 @@ MAX_PREDICT_TOKENS = int(os.environ.get("DEMOFORGE_AGENT_MAX_TOKENS", "256"))
 ORCHESTRATOR_URL = os.environ.get("DEMOFORGE_ORCHESTRATOR_URL", "").rstrip("/")
 PRESET = os.environ.get("DEMOFORGE_PRESET", "")
 
-# Optional OpenAI-compatible remote LLM (e.g. Hugging Face Inference Endpoints).
+# Optional OpenAI-compatible remote LLM (e.g. local server, Hugging Face, vLLM).
+# Use base_url like http://localhost:8000/v1 and model like openai/gpt-oss-20b; api_key can be "EMPTY" if required.
 OPENAI_COMPATIBLE_BASE = os.environ.get("OPENAI_COMPATIBLE_BASE", "").rstrip("/")
 OPENAI_COMPATIBLE_API_KEY = os.environ.get("OPENAI_COMPATIBLE_API_KEY", "")
 OPENAI_COMPATIBLE_MODEL = os.environ.get("OPENAI_COMPATIBLE_MODEL", "")
 USE_OPENAI_COMPATIBLE = bool(OPENAI_COMPATIBLE_BASE)
+# If set, use the Responses API (instructions + input -> output_text) instead of chat/completions.
+OPENAI_USE_RESPONSES_API = os.environ.get("OPENAI_USE_RESPONSES_API", "").strip().lower() in ("1", "true", "yes")
 
 _running = True
 _sandbox_id = ""
@@ -169,28 +178,102 @@ def _fallback_curl_add(base_url: str) -> str:
     return f"curl -s -X POST {base_url}/add -H 'Content-Type: application/json' -d '{{\"food\":\"{food}\"}}'"
 
 
+def _fetch_runtime_llm_config() -> dict | None:
+    """Get current LLM backend from orchestrator so toggle takes effect mid-run. Returns None on failure."""
+    if not ORCHESTRATOR_URL or not HAS_REQUESTS:
+        return None
+    try:
+        r = requests.get(f"{ORCHESTRATOR_URL}/llm-config", timeout=5)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return None
+
+
 def _ask_llm(messages: list[dict], base_url: str = "", max_tokens: int = 0) -> str:
-    """Call LLM (OpenAI-compatible HTTP or Ollama), return assistant content. max_tokens caps output when supported."""
-    if USE_OPENAI_COMPATIBLE and HAS_REQUESTS:
-        try:
-            url = f"{OPENAI_COMPATIBLE_BASE}/chat/completions"
-            body = {
-                "model": OPENAI_COMPATIBLE_MODEL or "default",
-                "messages": messages,
-                "max_tokens": max_tokens if max_tokens > 0 else 256,
-                "temperature": 0,
-            }
-            headers = {"Content-Type": "application/json"}
-            if OPENAI_COMPATIBLE_API_KEY:
-                headers["Authorization"] = f"Bearer {OPENAI_COMPATIBLE_API_KEY}"
-            r = requests.post(url, json=body, headers=headers, timeout=120)
-            r.raise_for_status()
-            data = r.json()
-            text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()
-            return text if text else "DONE"
-        except Exception as e:
-            _log("error", f"OpenAI-compatible LLM error: {e}")
-            return _fallback_curl_add(base_url) if base_url else "DONE"
+    """Call LLM (OpenAI-compatible HTTP or Ollama), return assistant content. Uses runtime config from orchestrator when available."""
+    runtime = _fetch_runtime_llm_config()
+    use_remote = runtime.get("use_remote") if isinstance(runtime, dict) else USE_OPENAI_COMPATIBLE
+    base = (runtime.get("base") or "").strip().rstrip("/") if isinstance(runtime, dict) else OPENAI_COMPATIBLE_BASE
+    if not base and USE_OPENAI_COMPATIBLE:
+        base = OPENAI_COMPATIBLE_BASE
+    if isinstance(runtime, dict) and runtime.get("use_remote") is False:
+        use_remote = False
+    model = (runtime.get("model") or "").strip() if isinstance(runtime, dict) else (OPENAI_COMPATIBLE_MODEL or "default")
+    if not model:
+        model = OPENAI_COMPATIBLE_MODEL or "default"
+    api_key = (runtime.get("api_key") or "").strip() if isinstance(runtime, dict) else OPENAI_COMPATIBLE_API_KEY
+    if runtime is None and use_remote:
+        use_remote = bool(base)
+    elif use_remote and not base:
+        use_remote = False
+
+    if use_remote and base:
+        max_tok = max_tokens if max_tokens > 0 else 256
+
+        # Optional: Responses API (instructions + input -> output_text)
+        if OPENAI_USE_RESPONSES_API and HAS_REQUESTS:
+            try:
+                instructions = ""
+                input_text = ""
+                for m in messages:
+                    role = (m.get("role") or "").lower()
+                    content = (m.get("content") or "").strip()
+                    if role == "system":
+                        instructions = content if not instructions else f"{instructions}\n\n{content}"
+                    elif role == "user":
+                        input_text = content
+                if not input_text and messages:
+                    input_text = (messages[-1].get("content") or "").strip()
+                url = f"{base}/responses"
+                body = {"model": model, "instructions": instructions or "You are a helpful assistant.", "input": input_text}
+                headers = {"Content-Type": "application/json"}
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+                r = requests.post(url, json=body, headers=headers, timeout=120)
+                r.raise_for_status()
+                data = r.json()
+                text = (data.get("output_text") or data.get("output") or "").strip()
+                if text:
+                    return text
+            except Exception as e:
+                _log("error", f"Responses API error: {e}, falling back to chat completions")
+
+        # Prefer official OpenAI client when available
+        if HAS_OPENAI_CLIENT:
+            try:
+                client = OpenAI(base_url=base, api_key=api_key or "EMPTY")
+                r = client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_tok,
+                    temperature=0,
+                )
+                text = (r.choices[0].message.content or "").strip()
+                return text if text else "DONE"
+            except Exception as e:
+                _log("error", f"OpenAI client error: {e}")
+                if not HAS_REQUESTS:
+                    return _fallback_curl_add(base_url) if base_url else "DONE"
+
+        # Fallback: raw HTTP chat/completions
+        if HAS_REQUESTS:
+            try:
+                url = f"{base}/chat/completions"
+                body = {"model": model, "messages": messages, "max_tokens": max_tok, "temperature": 0}
+                headers = {"Content-Type": "application/json"}
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+                r = requests.post(url, json=body, headers=headers, timeout=120)
+                r.raise_for_status()
+                data = r.json()
+                text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()
+                return text if text else "DONE"
+            except Exception as e:
+                _log("error", f"OpenAI-compatible LLM error: {e}")
+        return _fallback_curl_add(base_url) if base_url else "DONE"
+
     if not HAS_OLLAMA:
         return _fallback_curl_add(base_url) if base_url else "DONE"
     try:

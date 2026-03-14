@@ -75,15 +75,19 @@ This guide explains **Config**, **Expires in**, **Capture**, **Templates**, and 
 
 - After **Stop & save**, the template list is refetched. If you don’t see it, check the success message: “No commands were recorded” means 0 steps were saved (see above). If the message says “Recorded N step(s). Template saved.”, refresh the page or re-open the Template dropdown.
 
-### Using a remote LLM (Hugging Face / OpenAI-compatible)
+### Using a remote or local LLM (OpenAI-compatible)
 
-If local Ollama is slow or unavailable, you can point the agent at an OpenAI-compatible HTTP API (e.g. Hugging Face Inference Endpoints). Set these environment variables before starting the backend (and ensure the agent process inherits them):
+If local Ollama is slow or unavailable, you can point the agent at an OpenAI-compatible API (e.g. a local server, Hugging Face Inference Endpoints, or vLLM). Set these environment variables before starting the backend (and ensure the agent process inherits them):
 
-- **OPENAI_COMPATIBLE_BASE** — Base URL of the API (e.g. `https://your-id.us-east-2.aws.endpoints.huggingface.cloud/v1`). No trailing slash.
-- **OPENAI_COMPATIBLE_MODEL** — Model name to send in the request body (as required by your endpoint).
-- **OPENAI_COMPATIBLE_API_KEY** — Optional. Set if the endpoint requires auth (e.g. Hugging Face token). Sent as `Authorization: Bearer <key>`.
+- **OPENAI_COMPATIBLE_BASE** — Base URL of the API (e.g. `http://localhost:8000/v1` for a local server, or `https://your-id....huggingface.cloud/v1`). No trailing slash.
+- **OPENAI_COMPATIBLE_MODEL** — Model name (e.g. `openai/gpt-oss-20b`).
+- **OPENAI_COMPATIBLE_API_KEY** — Optional. Use `EMPTY` if your server requires a key but accepts a placeholder; otherwise your Hugging Face or API token.
 
-When `OPENAI_COMPATIBLE_BASE` is set, all LLM calls (planner and any per-step fallback) go to that URL; Ollama is not used. The agent uses `temperature=0` for more deterministic replies. Restart the backend after changing these variables.
+If the `openai` Python package is installed (`pip install openai`), the agent uses it the same way as in your code: `OpenAI(base_url=..., api_key=...).chat.completions.create(...)`. Otherwise it falls back to raw HTTP `POST .../chat/completions`.
+
+**Responses API (instructions + input):** If your server exposes a Responses-style endpoint (`/v1/responses` or `/responses`) with `instructions` and `input` and returns `output_text`, set **OPENAI_USE_RESPONSES_API=1**. The agent will call that endpoint (system message → instructions, last user message → input) and use the returned `output_text`.
+
+When `OPENAI_COMPATIBLE_BASE` is set, all LLM calls go to that URL; Ollama is not used. Restart the backend after changing these variables.
 
 ---
 

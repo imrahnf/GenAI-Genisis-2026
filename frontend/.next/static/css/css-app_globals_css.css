@@ -28,6 +28,53 @@ body {
   font-size: 0.9rem;
 }
 
+.llm-backend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
+.llm-label {
+  font-weight: 600;
+  color: #444;
+}
+
+.llm-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.llm-toggle input {
+  margin: 0;
+}
+
+.llm-base,
+.llm-model,
+.llm-apikey {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.llm-base {
+  min-width: 200px;
+}
+
+.llm-model {
+  min-width: 140px;
+}
+
+.llm-apikey {
+  min-width: 100px;
+}
+
 /* Preset grid */
 .preset-grid h2,
 .config-panel h2,
