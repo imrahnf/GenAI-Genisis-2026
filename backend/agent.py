@@ -15,7 +15,9 @@ Env: DEMOFORGE_SANDBOX_ID, DEMOFORGE_PORT, DEMOFORGE_GOAL, DEMOFORGE_ORCHESTRATO
 If DEMOFORGE_TEMPLATE_ID is set, agent runs in replay mode: fetch template steps and run commands in order (no LLM).
 On Destroy, process gets SIGTERM.
 """
+import json
 import os
+import random
 import re
 import signal
 import subprocess
@@ -34,12 +36,20 @@ try:
 except ImportError:
     HAS_REQUESTS = False
 
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "phi3:mini")
-INTERVAL_SEC = int(os.environ.get("DEMOFORGE_AGENT_INTERVAL", "10"))
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
+INTERVAL_SEC = int(os.environ.get("DEMOFORGE_AGENT_INTERVAL", "3"))
 COMMAND_TIMEOUT = int(os.environ.get("DEMOFORGE_COMMAND_TIMEOUT", "15"))
 MAX_STEPS_PER_ROUND = int(os.environ.get("DEMOFORGE_MAX_STEPS", "10"))
+# Cap LLM output length for faster CPU inference (0 = no cap).
+MAX_PREDICT_TOKENS = int(os.environ.get("DEMOFORGE_AGENT_MAX_TOKENS", "256"))
 ORCHESTRATOR_URL = os.environ.get("DEMOFORGE_ORCHESTRATOR_URL", "").rstrip("/")
 PRESET = os.environ.get("DEMOFORGE_PRESET", "")
+
+# Optional OpenAI-compatible remote LLM (e.g. Hugging Face Inference Endpoints).
+OPENAI_COMPATIBLE_BASE = os.environ.get("OPENAI_COMPATIBLE_BASE", "").rstrip("/")
+OPENAI_COMPATIBLE_API_KEY = os.environ.get("OPENAI_COMPATIBLE_API_KEY", "")
+OPENAI_COMPATIBLE_MODEL = os.environ.get("OPENAI_COMPATIBLE_MODEL", "")
+USE_OPENAI_COMPATIBLE = bool(OPENAI_COMPATIBLE_BASE)
 
 _running = True
 _sandbox_id = ""
@@ -151,18 +161,40 @@ def _fallback_curl_add(base_url: str) -> str:
     return f"curl -s -X POST {base_url}/add -H 'Content-Type: application/json' -d '{{\"food\":\"{food}\"}}'"
 
 
-def _ask_llm(messages: list[dict], base_url: str = "") -> str:
-    """Send messages to Ollama, return full assistant content (so we can parse code blocks). On model not found, return fallback curl."""
+def _ask_llm(messages: list[dict], base_url: str = "", max_tokens: int = 0) -> str:
+    """Call LLM (OpenAI-compatible HTTP or Ollama), return assistant content. max_tokens caps output when supported."""
+    if USE_OPENAI_COMPATIBLE and HAS_REQUESTS:
+        try:
+            url = f"{OPENAI_COMPATIBLE_BASE}/chat/completions"
+            body = {
+                "model": OPENAI_COMPATIBLE_MODEL or "default",
+                "messages": messages,
+                "max_tokens": max_tokens if max_tokens > 0 else 256,
+                "temperature": 0,
+            }
+            headers = {"Content-Type": "application/json"}
+            if OPENAI_COMPATIBLE_API_KEY:
+                headers["Authorization"] = f"Bearer {OPENAI_COMPATIBLE_API_KEY}"
+            r = requests.post(url, json=body, headers=headers, timeout=120)
+            r.raise_for_status()
+            data = r.json()
+            text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()
+            return text if text else "DONE"
+        except Exception as e:
+            _log("error", f"OpenAI-compatible LLM error: {e}")
+            return _fallback_curl_add(base_url) if base_url else "DONE"
     if not HAS_OLLAMA:
         return _fallback_curl_add(base_url) if base_url else "DONE"
     try:
-        r = ollama.chat(model=OLLAMA_MODEL, messages=messages)
+        kwargs = {"model": OLLAMA_MODEL, "messages": messages}
+        if max_tokens > 0:
+            kwargs["options"] = {"num_predict": max_tokens}
+        r = ollama.chat(**kwargs)
         text = (r.get("message") or {}).get("content", "").strip()
         return text if text else "DONE"
     except Exception as e:
         err_msg = str(e)
         _log("error", f"Ollama error: {err_msg}")
-        # Model not found (404) or similar: run fallback curl so the demo still adds foods
         if base_url and ("not found" in err_msg.lower() or "404" in err_msg):
             _log("info", "Using fallback: curl to add a food (pull model with: ollama pull phi3:mini)")
             return _fallback_curl_add(base_url)
@@ -177,6 +209,259 @@ def _rewrite_command_for_replay(cmd: str, current_base_url: str) -> str:
     out = re.sub(r"http://127\.0\.0\.1:\d+", current_base_url, cmd)
     out = re.sub(r"http://localhost:\d+", current_base_url, out)
     return out
+
+
+def _extract_json_block(text: str) -> str:
+    """Extract JSON object from LLM reply. Supports ```json blocks or raw JSON."""
+    if not text:
+        return ""
+    # ```json\n{...}\n``` or ```\n{...}\n```
+    m = re.search(r"```(?:json)?\s*\n(.*?)(?:```|$)", text, re.DOTALL | re.IGNORECASE)
+    if m:
+        candidate = m.group(1).strip()
+        start = candidate.find("{")
+        end = candidate.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return candidate[start : end + 1]
+        return candidate
+    # Fallback: first '{' ... last '}' in whole reply
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return text[start : end + 1]
+    return text.strip()
+
+
+def _normalize_planner_response(plan: dict) -> dict:
+    """Map alternate LLM response shapes (e.g. executions + continuity) to init + continuous schema."""
+    if "init" in plan and "continuous" in plan:
+        return plan
+    out = {}
+    init_cmd = None
+    if "executions" in plan and isinstance(plan["executions"], list) and plan["executions"]:
+        first = plan["executions"][0]
+        init_cmd = first.get("command") if isinstance(first, dict) else None
+        out["init"] = {
+            "enabled": bool(init_cmd),
+            "command": init_cmd or "",
+            "description": "",
+        }
+    else:
+        out["init"] = plan.get("init") or {"enabled": False, "command": None, "description": ""}
+        init_cmd = out["init"].get("command") or ""
+
+    bounds = {}
+    if "continuity" in plan and isinstance(plan["continuity"], dict):
+        c = plan["continuity"]
+        bounds = dict(c.get("bounds") or {})
+        out["continuous"] = {
+            "mode": c.get("mode") or "loop",
+            "interval_seconds": c.get("interval_seconds") or 5,
+            "template": c.get("template") or "",
+            "parameter_strategy": (c.get("parameter_strategy") or "fixed").lower(),
+            "bounds": bounds,
+        }
+    else:
+        out["continuous"] = plan.get("continuous") or {}
+        bounds = dict(out["continuous"].get("bounds") or {})
+
+    # Infer max_id from init seed count so continuous transfers use only seeded accounts
+    if isinstance(init_cmd, str) and "random_bank_transfers" == out.get("continuous", {}).get("parameter_strategy"):
+        m = re.search(r'"count"\s*:\s*(\d+)', init_cmd)
+        if m:
+            n = int(m.group(1))
+            if n >= 1:
+                bounds["min_id"] = 1
+                bounds["max_id"] = n
+                out["continuous"]["bounds"] = bounds
+    return out
+
+
+def _plan_from_llm(manifest: dict, base_url: str, init_goal: str, goal: str) -> dict | None:
+    """
+    Ask the LLM (ideally llama3.2:3b) to act as a planner and return a small JSON plan.
+
+    Plan schema (conceptual):
+    {
+      "init": {
+        "enabled": true,
+        "command": "curl ...",  # single shell command or null/empty
+        "description": "optional text"
+      },
+      "continuous": {
+        "mode": "loop",
+        "interval_seconds": 5,
+        "template": "curl ...",  # may contain {{base_url}} and placeholders
+        "parameter_strategy": "fixed" | "random_bank_transfers",
+        "bounds": { "min_amount": 5, "max_amount": 100 }
+      }
+    }
+    """
+    if not manifest or not (HAS_OLLAMA or USE_OPENAI_COMPATIBLE):
+        return None
+
+    system = (
+        "You are the planner for DemoForge, a sandbox demo/QA platform.\n"
+        "You NEVER execute commands; you ONLY design a small JSON plan that tells an executor\n"
+        "what shell commands to run. The executor will enforce run-once vs continuous behavior.\n\n"
+        "Rules:\n"
+        "- Use ONLY the API endpoints described in the manifest.\n"
+        "- Prefer POST /api/seed when seeding many accounts; otherwise use POST /api/accounts and POST /api/transfer.\n"
+        "- For init, choose at most ONE shell command (or none). It runs exactly once.\n"
+        "- For continuous, design a loop: either a fixed command every few seconds or a command template plus a parameter_strategy.\n"
+        "- Reply with a single JSON object, no explanations, no markdown.\n"
+        "Output ONLY a single JSON object. No reasoning, no thinking process, no explanation, no markdown except the raw JSON."
+    )
+
+    # Trim manifest to essentials so planner prompt stays small (faster inference).
+    slim_manifest = {
+        "id": manifest.get("id"),
+        "description": manifest.get("description"),
+        "endpoints": manifest.get("endpoints", []),
+        "example_commands": manifest.get("example_commands", [])[:5],
+    }
+    payload = {
+        "manifest": slim_manifest,
+        "base_url": base_url,
+        "init_goal": init_goal or "",
+        "continuous_goal": goal or "",
+        "schema": {
+            "init": {
+                "enabled": "boolean",
+                "command": "string | null",
+                "description": "string (optional)",
+            },
+            "continuous": {
+                "mode": "\"loop\"",
+                "interval_seconds": "number",
+                "template": "string",
+                "parameter_strategy": "\"fixed\" | \"random_bank_transfers\"",
+                "bounds": {
+                    "min_amount": "number (optional)",
+                    "max_amount": "number (optional)",
+                },
+            },
+        },
+        "instructions": (
+            "For bank-like manifests with /api/seed and /api/transfer:\n"
+            "- If the init goal mentions seeding or creating N users/accounts, set init.enabled=true and init.command to a single curl using /api/seed with count=N if possible.\n"
+            "- If the continuous goal mentions transfers or \"between accounts\", set continuous.template to a curl POST /api/transfer with placeholders {{from_id}}, {{to_id}}, {{amount}} "
+            "and parameter_strategy=\"random_bank_transfers\" and interval_seconds to around 5.\n"
+            "- Otherwise, you may leave init.enabled=false and set a simple continuous.template that fits the goal."
+        ),
+    }
+
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": json.dumps(payload)},
+    ]
+    _log("info", "Requesting planner JSON plan from LLM.")
+    reply = _ask_llm(messages, base_url=base_url, max_tokens=512)
+    _log("llm", f"Planner reply: {reply}")
+
+    try:
+        raw_json = _extract_json_block(reply)
+        plan = json.loads(raw_json)
+        if not isinstance(plan, dict):
+            raise ValueError("Planner output is not a JSON object")
+        # Normalize alternate LLM shapes (e.g. executions + continuity) to init + continuous
+        plan = _normalize_planner_response(plan)
+        if "init" not in plan or "continuous" not in plan:
+            raise ValueError("Planner plan missing init or continuous keys")
+        return plan
+    except Exception as e:
+        _log("error", f"Planner JSON parse failed: {e}")
+        return None
+
+
+def _run_continuous_from_plan(plan: dict, base_url: str) -> bool:
+    """
+    Run continuous loop using a plan from _plan_from_llm.
+
+    Returns True if a plan-driven loop was started, False if we should fall back to classic LLM loop.
+    """
+    cont = plan.get("continuous") or {}
+    template = cont.get("template")
+    if not template:
+        return False
+
+    mode = (cont.get("mode") or "loop").lower()
+    if mode != "loop":
+        return False
+
+    interval = cont.get("interval_seconds") or INTERVAL_SEC
+    strategy = (cont.get("parameter_strategy") or "fixed").lower()
+    bounds = cont.get("bounds") or {}
+    min_amount = bounds.get("min_amount", 5)
+    max_amount = bounds.get("max_amount", 100)
+
+    _log("info", f"Using plan-driven continuous loop (strategy={strategy}, interval={interval}s).")
+
+    if strategy == "random_bank_transfers":
+        max_id = bounds.get("max_id", 10)
+        min_id = bounds.get("min_id", 1)
+        if max_id < min_id:
+            max_id = min_id
+        while _running:
+            from_id = random.randint(min_id, max_id)
+            to_id = random.randint(min_id, max_id)
+            if max_id > min_id:
+                while to_id == from_id:
+                    to_id = random.randint(min_id, max_id)
+            amount = random.randint(int(min_amount), int(max_amount))
+            cmd = (
+                template.replace("{{base_url}}", base_url)
+                .replace("{{from_id}}", str(from_id))
+                .replace("{{to_id}}", str(to_id))
+                .replace("{{amount}}", str(amount))
+            )
+            cmd = _strip_trailing_done(cmd)
+            _log("command", f"Running (plan/continuous): {cmd}")
+            code, stdout, stderr = _run_command(cmd)
+            output = f"exit={code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+            _log("output", output[:800])
+            time.sleep(interval)
+        return True
+
+    fixed_cmd = template.replace("{{base_url}}", base_url)
+    while _running:
+        cmd = _strip_trailing_done(fixed_cmd)
+        _log("command", f"Running (plan/continuous): {cmd}")
+        code, stdout, stderr = _run_command(cmd)
+        output = f"exit={code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        _log("output", output[:800])
+        time.sleep(interval)
+    return True
+
+
+def _bank_deterministic_loop(base_url: str, n_accounts: int) -> None:
+    """
+    Deterministic continuous loop for the Bank preset.
+
+    Uses only account IDs in [1..n_accounts] and does not call the LLM at all.
+    """
+    if n_accounts < 2:
+        n_accounts = 2
+    min_amount, max_amount = 1, 100
+    _log("info", f"Continuous (bank/deterministic): transfers between accounts 1..{n_accounts} every {INTERVAL_SEC}s.")
+    while _running:
+        from_id = random.randint(1, n_accounts)
+        to_id = random.randint(1, n_accounts)
+        if n_accounts > 1:
+            while to_id == from_id:
+                to_id = random.randint(1, n_accounts)
+        amount = random.randint(min_amount, max_amount)
+        cmd = (
+            f"curl -s -X POST {base_url}/api/transfer "
+            f"-H 'Content-Type: application/json' "
+            f"-d '{{\"from_id\":{from_id},\"to_id\":{to_id},\"amount\":{amount}}}'"
+        )
+        cmd = _strip_trailing_done(cmd)
+        _log("command", f"Continuous (bank/deterministic): {cmd}")
+        code, stdout, stderr = _run_command(cmd)
+        output = f"exit={code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        _log("output", output[:800])
+        time.sleep(INTERVAL_SEC)
 
 
 def _replay_template(template_id: str, base_url: str) -> list[dict]:
@@ -244,6 +529,7 @@ def _system_prompt_from_manifest(manifest: dict, base_url: str, goal: str) -> st
     parts.append(
         "CRITICAL RULES:\n"
         "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE. Do NOT append '&& DONE' or '&& echo DONE' to the command.\n"
+        "- No reasoning or explanation. Output only that one line.\n"
         "- If you are unsure what to do next, output DONE.\n"
         "- Use the minimal set of API calls that match the goal. If the goal is to create (a) single account(s) or run a transfer, use POST /api/accounts once per new account and POST /api/transfer; use POST /api/seed ONLY when the goal explicitly asks to seed or create many users (e.g. 'seed 100 users').\n"
         "- You may combine multiple API calls in one shell command using simple loops or &&, e.g.:\n"
@@ -295,6 +581,30 @@ def main() -> None:
     init_goal = os.environ.get("DEMOFORGE_INIT_GOAL", "").strip()
     _log("info", f"Agent started. Goal: {goal}. Sandbox at {base_url}. Ollama: {HAS_OLLAMA}" + (f" Init goal: {init_goal}" if init_goal else ""))
 
+    # Deterministic path for Bank preset: no LLM control flow.
+    if PRESET == "bank" and not template_id:
+        # Parse desired account count N from init_goal; fallback to 3 if not present.
+        n_accounts = 3
+        if init_goal:
+            m = re.search(r"(\d+)", init_goal)
+            if m:
+                try:
+                    n_accounts = max(1, int(m.group(1)))
+                except ValueError:
+                    n_accounts = 3
+        _log("info", f"Init (bank/deterministic): seeding {n_accounts} accounts via /api/seed.")
+        seed_cmd = (
+            f"curl -s -X POST {base_url}/api/seed "
+            f"-H 'Content-Type: application/json' "
+            f"-d '{{\"count\":{n_accounts},\"initial_balance\":100,\"name_prefix\":\"User\"}}'"
+        )
+        code, stdout, stderr = _run_command(seed_cmd)
+        output = f"exit={code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        _log("output", output[:800])
+        _log("info", "Init (bank/deterministic) complete, starting continuous loop.")
+        _bank_deterministic_loop(base_url, n_accounts)
+        return
+
     manifest = _fetch_manifest(base_url)
     if manifest and manifest.get("endpoints"):
         system = _system_prompt_from_manifest(manifest, base_url, goal)
@@ -310,6 +620,7 @@ def main() -> None:
             f"Example transfer: curl -X POST {base_url}/api/transfer -H 'Content-Type: application/json' -d '{{\"from_id\":1,\"to_id\":2,\"amount\":10}}'\n\n"
             "CRITICAL RULES:\n"
             "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE. Do NOT append '&& DONE' or '&& echo DONE' to the command.\n"
+            "- No reasoning or explanation. Output only that one line.\n"
             "- If you are unsure what to do next, output DONE.\n"
             "- Use the minimal set of API calls that match the goal. For 'create an account and run a transfer' use POST /api/accounts once then POST /api/transfer; use POST /api/seed ONLY when the goal explicitly says to seed or create many users.\n"
             "- You may combine multiple API calls in one shell command using simple loops or &&, e.g.:\n"
@@ -325,7 +636,7 @@ def main() -> None:
             "To add a food, POST to /add with JSON body {\"food\":\"Pizza\"}.\n"
             f"Example: curl -X POST {base_url}/add -H 'Content-Type: application/json' -d '{{\"food\":\"Pizza\"}}'\n\n"
             "CRITICAL RULES:\n"
-            "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE.\n"
+            "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE. No reasoning or explanation. Output only that one line.\n"
             "- If you are unsure what to do next, output DONE.\n"
             "- You may combine multiple API calls in one shell command using simple loops or &&, e.g.:\n"
             "  for i in $(seq 1 5); do curl ...; done\n"
@@ -334,9 +645,26 @@ def main() -> None:
         )
     messages = [{"role": "system", "content": system}]
 
-    # Optional init phase: run once with init_goal, then continue with main goal
+    # Planner: one-shot LLM call to get init + continuous plan (when manifest available).
+    plan: dict | None = None
+    if manifest and manifest.get("endpoints"):
+        plan = _plan_from_llm(manifest, base_url, init_goal, goal)
+
+    # Optional init phase: prefer plan's single command; else fall back to LLM init loop.
     if init_goal and not template_id:
-        init_system = _system_prompt_from_manifest(manifest, base_url, init_goal) if (manifest and manifest.get("endpoints")) else (
+        planned_init_cmd = None
+        if plan:
+            init_cfg = plan.get("init") or {}
+            if init_cfg.get("enabled") and init_cfg.get("command"):
+                planned_init_cmd = str(init_cfg["command"]).strip()
+        if planned_init_cmd:
+            cmd = _strip_trailing_done(planned_init_cmd.replace("{{base_url}}", base_url))
+            _log("info", f"Running init phase from plan: {cmd}")
+            code, stdout, stderr = _run_command(cmd)
+            _log("output", f"exit={code}\nstdout:\n{stdout}\nstderr:\n{stderr}"[:800])
+            _log("info", "Init phase (plan) complete, switching to main goal.")
+        else:
+            init_system = _system_prompt_from_manifest(manifest, base_url, init_goal) if (manifest and manifest.get("endpoints")) else (
             f"You are an agent controlling an app at {base_url}. Goal: {init_goal}. Use minimal API calls. Reply with one shell command or DONE. Do NOT append && DONE."
         )
         if not (manifest and manifest.get("endpoints")):
@@ -386,7 +714,7 @@ def main() -> None:
                 f"Example create: curl -X POST {base_url}/api/accounts -H 'Content-Type: application/json' -d '{{\"name\":\"Alice\",\"initial_balance\":100}}'\n"
                 f"Example transfer: curl -X POST {base_url}/api/transfer -H 'Content-Type: application/json' -d '{{\"from_id\":1,\"to_id\":2,\"amount\":10}}'\n\n"
                 "CRITICAL RULES:\n"
-                "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE. Do NOT append '&& DONE' or '&& echo DONE' to the command.\n"
+                "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE. Do NOT append '&& DONE' or '&& echo DONE' to the command. No reasoning or explanation. Output only that one line.\n"
                 "- Use the minimal set of API calls that match the goal. For 'create an account and run a transfer' use POST /api/accounts once then POST /api/transfer; use POST /api/seed ONLY when the goal explicitly says to seed or create many users.\n"
                 "- You may only use shell builtins plus curl and echo. Do NOT use markdown, backticks, or code fences; output the raw command only."
             )
@@ -395,16 +723,22 @@ def main() -> None:
                 f"You are an agent controlling a favorite foods app. The app is at {base_url}.\n"
                 f"Goal: {goal}\n\n"
                 "To add a food, POST to /add with JSON body {\"food\":\"Pizza\"}.\n"
-                "CRITICAL: Reply with ONLY one line: command or DONE. Do NOT append && DONE. Do NOT use markdown."
+                "CRITICAL: Reply with ONLY one line: command or DONE. No reasoning or explanation. Output only that one line. Do NOT append && DONE. Do NOT use markdown."
             )
         messages = [{"role": "system", "content": system}]
+
+    # If we have a valid plan with continuous template, run plan-driven loop (no per-step LLM).
+    if plan and _run_continuous_from_plan(plan, base_url):
+        return
 
     while _running:
         messages.append({"role": "user", "content": "What single shell command do you run next? (one line: command or DONE; if unsure, output DONE)"})
         _log("info", "Asking LLM for next command...")
 
         for step in range(MAX_STEPS_PER_ROUND):
-            reply = _ask_llm(messages, base_url=base_url)
+            # Limit context to last 8 messages + system to keep prompts small and inference faster.
+            trimmed = [messages[0]] + messages[-(2 * 4) :] if len(messages) > 9 else messages
+            reply = _ask_llm(trimmed, base_url=base_url, max_tokens=MAX_PREDICT_TOKENS)
             messages.append({"role": "assistant", "content": reply})
             _log("llm", f"Reply: {reply}")
 

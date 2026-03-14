@@ -74,9 +74,9 @@ export OLLAMA_MODEL=llama3.1:8b   # recommended
 export OLLAMA_MODEL=phi3:mini     # smaller/faster fallback
 ```
 
-`backend/agent.py` reads `OLLAMA_MODEL` at startup; all agents share that model.
+`backend/agent.py` reads `OLLAMA_MODEL` at startup; all agents share that model. For plan-driven behavior (init once + continuous transfer loop), use e.g. `export OLLAMA_MODEL=qwen2.5-coder:7b`. Set `DEMOFORGE_AGENT_MAX_TOKENS=256` to cap LLM output for faster CPU inference; when the planner succeeds, the continuous phase uses a plan-driven loop (no per-step LLM). To use a remote LLM (e.g. Hugging Face Inference Endpoints), set `OPENAI_COMPATIBLE_BASE`, `OPENAI_COMPATIBLE_MODEL`, and optionally `OPENAI_COMPATIBLE_API_KEY`; see [docs/USE_GUIDE.md](docs/USE_GUIDE.md).
 
-If the model isn’t found (e.g. you see `model '...'' not found` in the logs), the agent **still drives the apps** by running a fallback `curl` (e.g. to `/add` with a rotating list Pizza/Sushi/Sigma/etc.). This means the demo continues to work even if Ollama is misconfigured.
+If the model isn’t found (e.g. you see `model '...'' not found` in the logs), the agent **still drives the apps** by running a fallback `curl` `curl` (e.g. to `/add` with a rotating list Pizza/Sushi/Sigma/etc.). This means the demo continues to work even if Ollama is misconfigured.
 
 ---
 
