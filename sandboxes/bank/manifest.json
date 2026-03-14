@@ -1,0 +1,43 @@
+{
+  "id": "bank",
+  "name": "Bank",
+  "description": "Mini banking demo: accounts and transfers, synthetic data only.",
+  "synthetic_data": "SQLite accounts and transactions; demo-only, no real financial data.",
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/api/accounts",
+      "body": { "name": "string", "initial_balance": "number" },
+      "description": "Create an account."
+    },
+    {
+      "method": "POST",
+      "path": "/api/transfer",
+      "body": { "from_id": "number", "to_id": "number", "amount": "number" },
+      "description": "Transfer between accounts."
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "description": "List accounts and recent transactions (HTML)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "description": "Health check."
+    }
+  ],
+  "example_commands": [
+    "curl -s -X POST {{base_url}}/api/accounts -H 'Content-Type: application/json' -d '{\"name\":\"Alice\",\"initial_balance\":100}'",
+    "curl -s -X POST {{base_url}}/api/transfer -H 'Content-Type: application/json' -d '{\"from_id\":1,\"to_id\":2,\"amount\":10}'"
+  ],
+  "default_goal": "Create an account and run a transfer.",
+  "default_config": {
+    "APP_TITLE": "Bank Demo",
+    "BANK_CURRENCY": "USD"
+  },
+  "config_schema": {
+    "APP_TITLE": "Page title and H1.",
+    "BANK_CURRENCY": "Currency label for balances (e.g. USD, CAD)."
+  }
+}

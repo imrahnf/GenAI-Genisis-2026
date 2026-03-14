@@ -4,7 +4,12 @@ Mini banking demo app: SQLite + Flask.
 - POST /api/accounts : create account (name, initial_balance)
 - POST /api/transfer : transfer between accounts (from_id, to_id, amount)
 - GET /api/health : health check
+
+Env:
+- APP_TITLE: overrides page <title> and H1 so Config (JSON env) is visible.
+- BANK_CURRENCY: label for balances (e.g. \"USD\", \"CAD\").
 """
+import os
 import sqlite3
 from pathlib import Path
 
@@ -45,23 +50,37 @@ def index():
         {"id": r["id"], "from": r["from_name"], "to": r["to_name"], "amount": r["amount"], "created_at": r["created_at"]}
         for r in txns
     ]
+    title = os.environ.get("APP_TITLE", "Bank Demo")
+    currency = os.environ.get("BANK_CURRENCY", "")
     return render_template_string(
         """
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>Bank Demo</title>
+<head><meta charset="utf-8"><title>{{ title }}</title>
 <style>
-  body { font-family: system-ui; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+  body { font-family: system-ui; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
   h1 { font-size: 1.5rem; }
   table { width: 100%%; border-collapse: collapse; margin: 1rem 0; }
   th, td { text-align: left; padding: 0.4rem; border-bottom: 1px solid #eee; }
+  form { margin: 0.5rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  input[type=text], input[type=number] { padding: 0.35rem 0.5rem; font: inherit; }
+  button { padding: 0.4rem 0.8rem; font: inherit; cursor: pointer; background: #333; color: #fff; border: none; border-radius: 4px; }
+  button:hover { background: #111; }
+  .muted { color: #666; font-size: 0.85rem; }
 </style>
 </head>
 <body>
-  <h1>Bank Demo</h1>
+  <h1>{{ title }}</h1>
   <h2>Accounts</h2>
+  <form id="create-account-form">
+    <strong>New account:</strong>
+    <input type="text" id="acct-name" placeholder="Name" required />
+    <input type="number" id="acct-balance" placeholder="Initial balance" step="0.01" />
+    <button type="submit">Create</button>
+    <span class="muted" id="acct-msg"></span>
+  </form>
   <table>
-    <tr><th>ID</th><th>Name</th><th>Balance</th></tr>
+    <tr><th>ID</th><th>Name</th><th>Balance {{ currency }}</th></tr>
     {% for a in accounts %}
     <tr><td>{{ a.id }}</td><td>{{ a.name }}</td><td>{{ a.balance }}</td></tr>
     {% else %}
@@ -69,6 +88,14 @@ def index():
     {% endfor %}
   </table>
   <h2>Recent Transactions</h2>
+  <form id="transfer-form">
+    <strong>Transfer:</strong>
+    <input type="number" id="from-id" placeholder="From ID" />
+    <input type="number" id="to-id" placeholder="To ID" />
+    <input type="number" id="amount" placeholder="Amount" step="0.01" />
+    <button type="submit">Send</button>
+    <span class="muted" id="tx-msg"></span>
+  </form>
   <table>
     <tr><th>From</th><th>To</th><th>Amount</th><th>Time</th></tr>
     {% for t in txns %}
@@ -77,9 +104,54 @@ def index():
     <tr><td colspan="4">No transactions yet.</td></tr>
     {% endfor %}
   </table>
+  <script>
+    document.getElementById('create-account-form').onsubmit = async function (e) {
+      e.preventDefault();
+      var name = (document.getElementById('acct-name').value || '').trim();
+      var balStr = document.getElementById('acct-balance').value || '0';
+      var msg = document.getElementById('acct-msg');
+      if (!name) { msg.textContent = 'Name required.'; return; }
+      msg.textContent = 'Creating...';
+      try {
+        var r = await fetch('/api/accounts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name, initial_balance: parseFloat(balStr) || 0 })
+        });
+        var data = await r.json();
+        if (!data.ok) { msg.textContent = data.error || 'Error'; return; }
+        location.reload();
+      } catch (e) {
+        msg.textContent = 'Error creating account.';
+      }
+    };
+    document.getElementById('transfer-form').onsubmit = async function (e) {
+      e.preventDefault();
+      var fromId = parseInt(document.getElementById('from-id').value || '0', 10);
+      var toId = parseInt(document.getElementById('to-id').value || '0', 10);
+      var amt = parseFloat(document.getElementById('amount').value || '0');
+      var msg = document.getElementById('tx-msg');
+      if (!fromId || !toId || !amt) { msg.textContent = 'All fields required.'; return; }
+      msg.textContent = 'Transferring...';
+      try {
+        var r = await fetch('/api/transfer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from_id: fromId, to_id: toId, amount: amt })
+        });
+        var data = await r.json();
+        if (!data.ok) { msg.textContent = data.error || 'Error'; return; }
+        location.reload();
+      } catch (e) {
+        msg.textContent = 'Error transferring.';
+      }
+    };
+  </script>
 </body>
 </html>
 """,
+        title=title,
+        currency=currency,
         accounts=accounts_list,
         txns=txns_list,
     )
