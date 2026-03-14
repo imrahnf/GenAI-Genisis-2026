@@ -143,6 +143,14 @@ def _strip_trailing_done(cmd: str) -> str:
     return cmd
 
 
+def _interval_from_goal(goal: str) -> int | None:
+    """If goal mentions 'every N second(s)', return N; else None so caller uses INTERVAL_SEC."""
+    if not goal:
+        return None
+    m = re.search(r"every\s+(\d+)\s+second", goal, re.IGNORECASE)
+    return int(m.group(1)) if m else None
+
+
 FALLBACK_FOODS = ["Pizza", "Sushi", "Tacos", "Sigma", "Aura", "Vibes", "Waffles", "Curry", "Salad", "Soup", "Burger"]
 
 
@@ -442,7 +450,8 @@ def _bank_deterministic_loop(base_url: str, n_accounts: int) -> None:
     """
     if n_accounts < 2:
         n_accounts = 2
-    min_amount, max_amount = 1, 100
+    # Use a small max amount so we rarely hit "insufficient balance" (accounts start at 100).
+    min_amount, max_amount = 1, 20
     _log("info", f"Continuous (bank/deterministic): transfers between accounts 1..{n_accounts} every {INTERVAL_SEC}s.")
     while _running:
         from_id = random.randint(1, n_accounts)
@@ -530,10 +539,10 @@ def _system_prompt_from_manifest(manifest: dict, base_url: str, goal: str) -> st
         "CRITICAL RULES:\n"
         "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE. Do NOT append '&& DONE' or '&& echo DONE' to the command.\n"
         "- No reasoning or explanation. Output only that one line.\n"
+        "- If the goal says 'every N seconds' or 'every N second', output ONLY ONE single command (e.g. one curl POST). The agent will run it, then wait N seconds and ask again. Do NOT output a for-loop or batch of commands for 'every N seconds' goals.\n"
         "- If you are unsure what to do next, output DONE.\n"
         "- Use the minimal set of API calls that match the goal. If the goal is to create (a) single account(s) or run a transfer, use POST /api/accounts once per new account and POST /api/transfer; use POST /api/seed ONLY when the goal explicitly asks to seed or create many users (e.g. 'seed 100 users').\n"
-        "- You may combine multiple API calls in one shell command using simple loops or &&, e.g.:\n"
-        "  for i in $(seq 1 5); do curl ...; done\n"
+        "- You may combine multiple API calls in one shell command using simple loops or && only when the goal does NOT say 'every N seconds'; e.g. for one-off batch: for i in $(seq 1 5); do curl ...; done\n"
         "- You may only use shell builtins plus curl and echo. Never use python, rm, apt, brew, or any file-system or package-manager commands.\n"
         "- Use ONLY the API endpoints and JSON shapes described above. Do NOT invent new paths or fields.\n"
         "- Do NOT use markdown, backticks, or code fences; output the raw command only."
@@ -761,7 +770,8 @@ def main() -> None:
             _log("output", output[:800])
             messages.append({"role": "user", "content": f"Command output:\n{output}\nWhat's next? (one line: command or DONE; if unsure, output DONE)"})
 
-        time.sleep(INTERVAL_SEC)
+        wait_sec = _interval_from_goal(goal) or INTERVAL_SEC
+        time.sleep(wait_sec)
         messages = [{"role": "system", "content": system}]
 
 

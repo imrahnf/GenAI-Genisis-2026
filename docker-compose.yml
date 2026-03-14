@@ -1,6 +1,0 @@
-# Optional: Redis for future agent/frontend comms. Not required for minimal run.
-services:
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
