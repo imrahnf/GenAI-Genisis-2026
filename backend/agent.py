@@ -164,14 +164,21 @@ FALLBACK_FOODS = ["Pizza", "Sushi", "Tacos", "Sigma", "Aura", "Vibes", "Waffles"
 
 
 def _fallback_curl_add(base_url: str) -> str:
-    """When Ollama model is missing, return a curl command so the demo still works."""
+    """When LLM returns invalid output, return a curl command so the demo still works."""
     if PRESET == "bank":
-        # Create a demo account for the bank app
         name = f"Demo{int(time.time()) % 1000}"
         return (
             f"curl -s -X POST {base_url}/api/accounts "
             f"-H 'Content-Type: application/json' "
             f"-d '{{\"name\":\"{name}\",\"initial_balance\":100}}'"
+        )
+    if PRESET == "spending":
+        amount = random.randint(5, 150)
+        desc = random.choice(["Coffee", "Lunch", "Groceries", "Subscription", "Other"])
+        return (
+            f"curl -s -X POST {base_url}/api/transactions "
+            f"-H 'Content-Type: application/json' "
+            f"-d '{{\"amount\":{amount},\"description\":\"{desc}\"}}'"
         )
     # Foods app fallback
     food = FALLBACK_FOODS[int(time.time()) % len(FALLBACK_FOODS)]
@@ -292,6 +299,23 @@ def _ask_llm(messages: list[dict], base_url: str = "", max_tokens: int = 0) -> s
         return "DONE"
 
 
+def _replay_command_strip_prefix(cmd: str) -> str:
+    """Strip log prefixes from a captured command so we run only the actual shell command."""
+    if not cmd or not cmd.strip():
+        return cmd
+    cmd = cmd.strip()
+    for prefix in ("Running: ", "Replay: ", "Init: "):
+        if cmd.startswith(prefix):
+            cmd = cmd[len(prefix):].strip()
+            break
+    # Strip deterministic loop labels so we don't run "Continuous (...): curl" as shell
+    if "curl" in cmd:
+        idx = cmd.find("curl")
+        if idx > 0:
+            cmd = cmd[idx:]
+    return cmd.strip()
+
+
 def _rewrite_command_for_replay(cmd: str, current_base_url: str) -> str:
     """Replace any previous sandbox URL (e.g. http://127.0.0.1:8502) in the command with current_base_url so replay hits this sandbox."""
     if not cmd or not current_base_url:
@@ -299,6 +323,8 @@ def _rewrite_command_for_replay(cmd: str, current_base_url: str) -> str:
     # Replace old sandbox host:port with current so replayed commands hit the new container
     out = re.sub(r"http://127\.0\.0\.1:\d+", current_base_url, cmd)
     out = re.sub(r"http://localhost:\d+", current_base_url, out)
+    # Also rewrite Tailscale/public host:port if present (captured from dashboard URL)
+    out = re.sub(r"http://[^/]+?:\d+", current_base_url, out)
     return out
 
 
@@ -525,6 +551,27 @@ def _run_continuous_from_plan(plan: dict, base_url: str) -> bool:
     return True
 
 
+def _spending_deterministic_loop(base_url: str) -> None:
+    """
+    Deterministic continuous loop for the Spending preset: add one transaction every INTERVAL_SEC.
+    Uses random amount (e.g. 5–150) so some are above typical threshold and show as anomalies.
+    """
+    descriptions = ["Coffee", "Lunch", "Groceries", "Subscription", "Transfer", "Payment", "Other"]
+    _log("info", f"Continuous (spending/deterministic): adding one transaction every {INTERVAL_SEC}s.")
+    while _running:
+        amount = random.randint(5, 150)
+        desc = random.choice(descriptions)
+        cmd = (
+            f"curl -s -X POST {base_url}/api/transactions "
+            f"-H 'Content-Type: application/json' "
+            f"-d '{{\"amount\":{amount},\"description\":\"{desc}\"}}'"
+        )
+        _log("command", f"Continuous (spending/deterministic): {cmd}")
+        code, stdout, stderr = _run_command(cmd)
+        _log("output", f"exit={code}\nstdout:\n{stdout}\nstderr:\n{stderr}"[:800])
+        time.sleep(INTERVAL_SEC)
+
+
 def _bank_deterministic_loop(base_url: str, n_accounts: int) -> None:
     """
     Deterministic continuous loop for the Bank preset.
@@ -654,11 +701,7 @@ def main() -> None:
                 if not _running:
                     break
                 cmd = step.get("command", "").strip()
-                # Stored commands may have "Running: " or "Replay: " prefix from logging
-                for prefix in ("Running: ", "Replay: "):
-                    if cmd.startswith(prefix):
-                        cmd = cmd[len(prefix):].strip()
-                        break
+                cmd = _replay_command_strip_prefix(cmd)
                 if not cmd:
                     continue
                 cmd = _rewrite_command_for_replay(cmd, base_url)
@@ -695,6 +738,42 @@ def main() -> None:
         _log("output", output[:800])
         _log("info", "Init (bank/deterministic) complete, starting continuous loop.")
         _bank_deterministic_loop(base_url, n_accounts)
+        return
+
+    # Deterministic path for Spending preset: optional seed then add transactions every N seconds.
+    if PRESET == "spending" and not template_id:
+        if init_goal and re.search(r"1\s*\$|transaction of 1|1\s*dollar|seed.*1\s*\$", init_goal, re.IGNORECASE):
+            _log("info", "Init (spending/deterministic): seeding one transaction of 1 via /api/seed.")
+            seed_cmd = (
+                f"curl -s -X POST {base_url}/api/seed "
+                f"-H 'Content-Type: application/json' "
+                f"-d '{{\"amount\":1,\"description\":\"Initial seed\"}}'"
+            )
+            code, stdout, stderr = _run_command(seed_cmd)
+            _log("output", f"exit={code}\nstdout:\n{stdout}\nstderr:\n{stderr}"[:800])
+            _log("info", "Init (spending/deterministic) complete, starting continuous loop.")
+        else:
+            seed_count = 0
+            if init_goal:
+                m = re.search(r"(\d+)", init_goal)
+                if m:
+                    try:
+                        seed_count = max(0, min(100, int(m.group(1))))
+                    except ValueError:
+                        pass
+            if seed_count > 0:
+                _log("info", f"Init (spending/deterministic): seeding {seed_count} transactions via /api/seed.")
+                seed_cmd = (
+                    f"curl -s -X POST {base_url}/api/seed "
+                    f"-H 'Content-Type: application/json' "
+                    f"-d '{{\"count\":{seed_count},\"max_amount\":150}}'"
+                )
+                code, stdout, stderr = _run_command(seed_cmd)
+                _log("output", f"exit={code}\nstdout:\n{stdout}\nstderr:\n{stderr}"[:800])
+                _log("info", "Init (spending/deterministic) complete, starting continuous loop.")
+            else:
+                _log("info", "Spending preset: no init goal; starting continuous transaction loop.")
+        _spending_deterministic_loop(base_url)
         return
 
     manifest = _fetch_manifest(base_url)

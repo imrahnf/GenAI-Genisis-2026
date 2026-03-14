@@ -232,10 +232,11 @@ def _get_docker_or_raise():
         raise HTTPException(status_code=503, detail=f"Docker unavailable: {msg}")
 
 
-def _env_from_config(config: dict | None) -> list[str]:
+def _env_from_config(config: dict | None) -> dict[str, str] | None:
+    """Build env dict for container; all values as strings so Docker receives them."""
     if not config:
-        return []
-    return [f"{k}={v}" for k, v in config.items()]
+        return None
+    return {k: str(v) for k, v in config.items() if v is not None}
 
 
 @app.post("/launch")
@@ -262,7 +263,7 @@ def launch(request: Request, req: LaunchRequest):
         raise HTTPException(status_code=503, detail="No ports available")
 
     expiry_at = (time.time() + expires_in) if expires_in else None
-    env_list = _env_from_config(config)
+    env_dict = _env_from_config(config)
 
     docker = _get_docker_or_raise()
     try:
@@ -272,12 +273,19 @@ def launch(request: Request, req: LaunchRequest):
             ports={"8501/tcp": port},
             name=f"demoforge-{sandbox_id}",
             remove=True,
-            environment=env_list if env_list else None,
+            environment=env_dict,
         )
         container_id = container.id if hasattr(container, "id") else str(container)
         _containers[sandbox_id] = container_id
     except Exception as e:
         manager.release_port(port)
+        err_msg = str(e)
+        if "404" in err_msg or "pull access denied" in err_msg or "not found" in err_msg.lower():
+            raise HTTPException(
+                status_code=503,
+                detail=f"Image {image} not found. Build it from the project root (where sandboxes/ is): "
+                f"docker build -t {image} sandboxes/{preset}/  or run ./build_sandboxes.sh",
+            )
         raise HTTPException(status_code=500, detail=f"Container start failed: {e}")
 
     if not manager.spawn(
@@ -335,10 +343,13 @@ def agent_log(req: AgentLogRequest):
         log_type = (req.type or "").strip().lower()
         if log_type == "command":
             raw = req.message[:2000].strip()
-            for prefix in ("Running: ", "Replay: "):
+            for prefix in ("Running: ", "Replay: ", "Init: "):
                 if raw.startswith(prefix):
                     raw = raw[len(prefix):].strip()
                     break
+            # Strip deterministic loop labels so stored command is just the curl (replay-friendly)
+            if "curl" in raw and raw.find("curl") > 0:
+                raw = raw[raw.find("curl"):].strip()
             _capture_steps[sid].append({"command": raw, "output": ""})
         elif log_type == "output" and _capture_steps[sid]:
             _capture_steps[sid][-1]["output"] = req.message[:2000]
@@ -430,6 +441,7 @@ def capture_stop(sandbox_id: str, req: CaptureStopRequest):
 PRESET_META = {
     "preset": {"name": "Favorite Foods", "description": "Flask app with synthetic food list; agent can add items via API."},
     "bank": {"name": "Bank", "description": "Mini banking demo: accounts and transfers, synthetic data only."},
+    "spending": {"name": "Spending & Anomaly Tracker", "description": "Single-user spending tracker with anomaly detection; synthetic data only."},
 }
 
 

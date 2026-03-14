@@ -1,0 +1,75 @@
+{
+  "id": "spending",
+  "name": "Spending & Anomaly Tracker",
+  "description": "Single-user spending tracker; transactions above a threshold are flagged as anomalies. Synthetic data only.",
+  "synthetic_data": "SQLite user and transactions; demo-only, no real financial data.",
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/",
+      "description": "Dashboard: user name, balance, transaction list with anomaly highlighting."
+    },
+    {
+      "method": "POST",
+      "path": "/api/transactions",
+      "body": { "amount": "number", "description": "string" },
+      "description": "Add a spending transaction; decrements user balance."
+    },
+    {
+      "method": "POST",
+      "path": "/api/seed",
+      "body": { "count": "number", "max_amount": "number" },
+      "description": "Seed random demo transactions (some may be above threshold)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "description": "Health check."
+    }
+  ],
+  "example_commands": [
+    "curl -s -X POST {{base_url}}/api/transactions -H 'Content-Type: application/json' -d '{\"amount\":25.50,\"description\":\"Coffee\"}'",
+    "curl -s -X POST {{base_url}}/api/seed -H 'Content-Type: application/json' -d '{\"count\":20,\"max_amount\":150}'"
+  ],
+  "default_goal": "Add a few transactions; include some above the anomaly threshold so they appear flagged.",
+  "default_config": {
+    "APP_TITLE": "Spending & Anomaly Tracker",
+    "USER_NAME": "Demo User",
+    "STARTING_BALANCE": "1000",
+    "ANOMALY_THRESHOLD": "100",
+    "CURRENCY": "USD"
+  },
+  "config_schema": {
+    "APP_TITLE": {
+      "label": "App title",
+      "type": "text",
+      "default": "Spending & Anomaly Tracker",
+      "help": "Shown in the page title and header."
+    },
+    "USER_NAME": {
+      "label": "User name",
+      "type": "text",
+      "default": "Demo User",
+      "help": "Display name for the account."
+    },
+    "STARTING_BALANCE": {
+      "label": "Starting balance",
+      "type": "number",
+      "default": 1000,
+      "help": "Initial balance when the user is created."
+    },
+    "ANOMALY_THRESHOLD": {
+      "label": "Anomaly threshold",
+      "type": "number",
+      "default": 100,
+      "help": "Transactions with amount above this are flagged as anomalies."
+    },
+    "CURRENCY": {
+      "label": "Currency",
+      "type": "select",
+      "options": ["USD", "CAD", "EUR"],
+      "default": "USD",
+      "help": "Label for balance and amounts."
+    }
+  }
+}
