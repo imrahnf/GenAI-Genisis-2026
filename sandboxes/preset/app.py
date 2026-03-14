@@ -2,7 +2,11 @@
 Favorite foods demo app: SQLite + Flask.
 - GET / : simple UI listing foods + form to add
 - POST /add : body {"food": "string"} -> insert row, return {"ok": true}
+
+Env:
+- APP_TITLE: overrides page <title> and H1 so Config (JSON env) is visible.
 """
+import os
 import sqlite3
 from pathlib import Path
 
@@ -31,11 +35,12 @@ def index():
     with get_db() as conn:
         rows = conn.execute("SELECT id, name, created_at FROM foods ORDER BY id DESC").fetchall()
     foods = [{"id": r["id"], "name": r["name"], "created_at": r["created_at"]} for r in rows]
+    title = os.environ.get("APP_TITLE", "Favorite Foods")
     return render_template_string(
         """
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>Favorite Foods</title>
+<head><meta charset="utf-8"><title>{{ title }}</title>
 <style>
   body { font-family: system-ui; max-width: 480px; margin: 2rem auto; padding: 0 1rem; }
   h1 { font-size: 1.5rem; }
@@ -47,7 +52,7 @@ def index():
 </style>
 </head>
 <body>
-  <h1>Favorite Foods</h1>
+  <h1>{{ title }}</h1>
   <ul id="food-list">
     {% for f in foods %}
     <li>{{ f.name }} <small>{{ f.created_at }}</small></li>
@@ -94,6 +99,7 @@ def index():
 </body>
 </html>
 """,
+        title=title,
         foods=foods,
     )
 

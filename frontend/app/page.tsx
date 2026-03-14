@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback } from "react";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 type LogEntry = { ts: number; type: string; message: string };
+
 type Sandbox = {
   sandbox_id: string;
   url: string;
@@ -17,10 +18,28 @@ type Sandbox = {
   capture_steps_count?: number;
   logs?: LogEntry[];
 };
-type Preset = { id: string; name: string; description: string };
+
+type ConfigFieldSchema = {
+  label?: string;
+  type?: "text" | "number" | "boolean" | "select";
+  default?: string | number | boolean;
+  options?: (string | number)[];
+  help?: string;
+};
+
+type Preset = {
+  id: string;
+  name: string;
+  description: string;
+  synthetic_data?: string;
+  capabilities?: string[];
+  default_goal?: string;
+  default_config?: Record<string, string>;
+  config_schema?: Record<string, ConfigFieldSchema>;
+};
 type Template = { id: string; name: string; preset: string; steps_count: number };
 
-const DEFAULT_GOALS: Record<string, string> = {
+const FALLBACK_GOALS: Record<string, string> = {
   preset: "Add a new food every 10 seconds.",
   bank: "Create an account and run a transfer.",
 };
@@ -30,6 +49,7 @@ export default function Home() {
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [goal, setGoal] = useState("");
   const [configJson, setConfigJson] = useState("{}");
+  const [configState, setConfigState] = useState<Record<string, string | number | boolean>>({});
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [sandboxes, setSandboxes] = useState<Sandbox[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -84,21 +104,55 @@ export default function Home() {
   }, [fetchTemplates]);
 
   useEffect(() => {
-    if (selectedPreset && !goal) setGoal(DEFAULT_GOALS[selectedPreset] ?? "");
-  }, [selectedPreset, goal]);
+    if (!selectedPreset) return;
+    const p = presets.find((x) => x.id === selectedPreset);
+    setGoal(p?.default_goal ?? FALLBACK_GOALS[selectedPreset] ?? "");
+    if (p?.config_schema && Object.keys(p.config_schema).length > 0) {
+      const initial: Record<string, string | number | boolean> = {};
+      for (const [key, field] of Object.entries(p.config_schema)) {
+        if (p.default_config && key in p.default_config) {
+          initial[key] = p.default_config[key] as string;
+        } else if (field.default !== undefined) {
+          initial[key] = field.default;
+        }
+      }
+      setConfigState(initial);
+      setConfigJson(JSON.stringify(initial, null, 2));
+    } else {
+      const base = p?.default_config ?? {};
+      setConfigState(base);
+      setConfigJson(
+        base && Object.keys(base).length > 0
+          ? JSON.stringify(base, null, 2)
+          : "{}"
+      );
+    }
+    setExpiresIn(null);
+  }, [selectedPreset, presets]);
 
   const handleLaunch = async (e: React.FormEvent) => {
     e.preventDefault();
     const preset = selectedPreset || "preset";
     setLoading(true);
     setError(null);
+    const p = presets.find((x) => x.id === preset);
     let config: Record<string, string> | undefined;
-    try {
-      config = configJson.trim() ? JSON.parse(configJson) : undefined;
-    } catch {
-      setError("Invalid JSON in config");
-      setLoading(false);
-      return;
+    if (p?.config_schema && Object.keys(p.config_schema).length > 0) {
+      const cfg: Record<string, string> = {};
+      for (const [k, v] of Object.entries(configState)) {
+        if (v !== undefined && v !== null && v !== "") {
+          cfg[k] = String(v);
+        }
+      }
+      config = Object.keys(cfg).length > 0 ? cfg : undefined;
+    } else {
+      try {
+        config = configJson.trim() ? JSON.parse(configJson) as Record<string, string> : undefined;
+      } catch {
+        setError("Invalid JSON in config");
+        setLoading(false);
+        return;
+      }
     }
     try {
       const r = await fetch(`${API_BASE}/launch`, {
@@ -209,31 +263,95 @@ export default function Home() {
         </div>
       </section>
 
-      {selectedPreset && (
-        <section className="config-panel">
-          <h2>Launch sandbox · {presets.find((p) => p.id === selectedPreset)?.name ?? selectedPreset}</h2>
-          <form onSubmit={handleLaunch} className="config-form">
-            <div className="field">
-              <label>Agent goal</label>
-              <textarea value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="e.g. Add a new food every 10 seconds." rows={2} />
-            </div>
-            <div className="field">
-              <label>Config (JSON env)</label>
-              <textarea value={configJson} onChange={(e) => setConfigJson(e.target.value)} placeholder="{}" rows={1} />
-            </div>
-            <div className="field row">
-              <label>Expires in</label>
-              <select value={expiresIn ?? ""} onChange={(e) => setExpiresIn(e.target.value === "" ? null : Number(e.target.value))}>
-                <option value="">No expiry</option>
-                <option value="300">5 min</option>
-                <option value="3600">1 hour</option>
-                <option value="7200">2 hours</option>
-              </select>
-            </div>
-            <button type="submit" disabled={loading}>{loading ? "Launching…" : "Launch sandbox"}</button>
-          </form>
-        </section>
-      )}
+      {selectedPreset && (() => {
+        const p = presets.find((x) => x.id === selectedPreset);
+        return (
+          <section className="config-panel">
+            <h2>Launch sandbox · {p?.name ?? selectedPreset}</h2>
+            {(p?.capabilities?.length || p?.synthetic_data) ? (
+              <div className="manifest-summary">
+                {p.synthetic_data && <p className="synthetic-data"><strong>Synthetic data:</strong> {p.synthetic_data}</p>}
+                {p.capabilities && p.capabilities.length > 0 && (
+                  <p className="capabilities"><strong>Capabilities:</strong> {p.capabilities.join(" · ")}</p>
+                )}
+              </div>
+            ) : null}
+            <form onSubmit={handleLaunch} className="config-form">
+              <div className="field">
+                <label>Agent goal</label>
+                <textarea value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="e.g. Add a new food every 10 seconds." rows={2} />
+              </div>
+              {p?.config_schema && Object.keys(p.config_schema).length > 0 ? (
+                <>
+                  {Object.entries(p.config_schema).map(([key, field]) => {
+                    const type = field.type || "text";
+                    const label = field.label || key;
+                    const value = configState[key];
+                    if (type === "boolean") {
+                      return (
+                        <div className="field row" key={key}>
+                          <label>{label}</label>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(value)}
+                            onChange={(e) => setConfigState({ ...configState, [key]: e.target.checked })}
+                          />
+                          {field.help && <span className="field-hint">{field.help}</span>}
+                        </div>
+                      );
+                    }
+                    if (type === "select" && field.options && field.options.length > 0) {
+                      return (
+                        <div className="field" key={key}>
+                          <label>{label}</label>
+                          <select
+                            value={value !== undefined && value !== null ? String(value) : ""}
+                            onChange={(e) => setConfigState({ ...configState, [key]: e.target.value })}
+                          >
+                            {field.options.map((opt) => (
+                              <option key={String(opt)} value={String(opt)}>
+                                {String(opt)}
+                              </option>
+                            ))}
+                          </select>
+                          {field.help && <span className="field-hint">{field.help}</span>}
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="field" key={key}>
+                        <label>{label}</label>
+                        <input
+                          type={type === "number" ? "number" : "text"}
+                          value={value !== undefined && value !== null ? String(value) : ""}
+                          onChange={(e) => setConfigState({ ...configState, [key]: type === "number" ? Number(e.target.value) : e.target.value })}
+                        />
+                        {field.help && <span className="field-hint">{field.help}</span>}
+                      </div>
+                    );
+                  })}
+                </>
+              ) : (
+                <div className="field">
+                  <label>Config (JSON env)</label>
+                  <textarea value={configJson} onChange={(e) => setConfigJson(e.target.value)} placeholder="{}" rows={2} />
+                </div>
+              )}
+              <div className="field row">
+                <label>Expires in</label>
+                <select value={expiresIn ?? ""} onChange={(e) => setExpiresIn(e.target.value === "" ? null : Number(e.target.value))}>
+                  <option value="">No expiry</option>
+                  <option value="60">1 min (demo)</option>
+                  <option value="300">5 min</option>
+                  <option value="3600">1 hour</option>
+                  <option value="7200">2 hours</option>
+                </select>
+              </div>
+              <button type="submit" disabled={loading}>{loading ? "Launching…" : "Launch sandbox"}</button>
+            </form>
+          </section>
+        );
+      })()}
 
       <section className="templates-section">
         <h2>Saved templates / replays</h2>

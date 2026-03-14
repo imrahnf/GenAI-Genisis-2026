@@ -37,7 +37,18 @@
     "BANK_CURRENCY": "USD"
   },
   "config_schema": {
-    "APP_TITLE": "Page title and H1.",
-    "BANK_CURRENCY": "Currency label for balances (e.g. USD, CAD)."
+    "APP_TITLE": {
+      "label": "App title",
+      "type": "text",
+      "default": "Bank Demo",
+      "help": "Shown in the page title and header."
+    },
+    "BANK_CURRENCY": {
+      "label": "Currency",
+      "type": "select",
+      "options": ["USD", "CAD", "EUR"],
+      "default": "USD",
+      "help": "Label for balances."
+    }
   }
 }

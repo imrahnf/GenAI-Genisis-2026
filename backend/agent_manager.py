@@ -40,7 +40,7 @@ class AgentManager:
     def release_port(self, port: int) -> None:
         self._used_ports.discard(port)
 
-    def spawn(self, sandbox_id: str, port: int, goal: str, orchestrator_url: str | None = None, template_id: str | None = None) -> bool:
+    def spawn(self, sandbox_id: str, port: int, goal: str, orchestrator_url: str | None = None, template_id: str | None = None, preset: str | None = None) -> bool:
         """Start agent.py as subprocess. Returns True if started. If template_id set, agent runs in replay mode."""
         if sandbox_id in self._agents:
             return False
@@ -54,6 +54,8 @@ class AgentManager:
             env["DEMOFORGE_ORCHESTRATOR_URL"] = orchestrator_url
         if template_id:
             env["DEMOFORGE_TEMPLATE_ID"] = template_id
+        if preset:
+            env["DEMOFORGE_PRESET"] = preset
         try:
             proc = subprocess.Popen(
                 [sys.executable, agent_script],

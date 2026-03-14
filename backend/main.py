@@ -1,6 +1,8 @@
 """
 DemoForge orchestrator: launch/destroy sandboxes and agents.
 """
+import json
+import os
 import time
 import uuid
 
@@ -17,6 +19,28 @@ from config import (
     PORT_RANGE_START,
     TAILSCALE_IP,
 )
+
+# Sandboxes dir: repo root / sandboxes (backend is in repo/backend)
+_SANDBOXES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sandboxes")
+_MANIFEST_CACHE: dict[str, dict] = {}
+
+
+def _load_manifest(preset: str) -> dict | None:
+    """Load manifest.json for preset. Cached in memory. Returns None if missing or invalid."""
+    if preset in _MANIFEST_CACHE:
+        return _MANIFEST_CACHE[preset]
+    path = os.path.join(_SANDBOXES_DIR, preset, "manifest.json")
+    if not os.path.isfile(path):
+        _MANIFEST_CACHE[preset] = None
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        _MANIFEST_CACHE[preset] = data
+        return data
+    except (json.JSONDecodeError, OSError):
+        _MANIFEST_CACHE[preset] = None
+        return None
 
 
 def _cleanup_orphan_containers():
@@ -189,6 +213,7 @@ def launch(request: Request, req: LaunchRequest):
         sandbox_id, port, goal,
         orchestrator_url=agent_orchestrator_url,
         template_id=template_id,
+        preset=preset,
     ):
         try:
             c = docker.containers.get(f"demoforge-{sandbox_id}")
@@ -327,23 +352,51 @@ def capture_stop(sandbox_id: str, req: CaptureStopRequest):
     }
 
 
-# Preset id -> {name, description} for control panel grid
+# Fallback when manifest missing
 PRESET_META = {
     "preset": {"name": "Favorite Foods", "description": "Flask app with synthetic food list; agent can add items via API."},
     "bank": {"name": "Bank", "description": "Mini banking demo: accounts and transfers, synthetic data only."},
 }
 
 
+@app.get("/context/{preset}")
+def get_context(preset: str):
+    """Return manifest for preset. Agent fetches this to build context-aware prompts."""
+    from config import get_image_for_preset
+    if not get_image_for_preset(preset):
+        raise HTTPException(status_code=404, detail="Unknown preset")
+    manifest = _load_manifest(preset)
+    if not manifest:
+        return {"id": preset, "name": PRESET_META.get(preset, {}).get("name", preset), "description": PRESET_META.get(preset, {}).get("description", "")}
+    return manifest
+
+
 @app.get("/presets")
 def list_presets():
-    """List available presets for the control panel (grid)."""
+    """List presets with manifest-derived summary (capabilities, defaults) for UI."""
     from config import PRESETS
-    return {
-        "presets": [
-            {"id": pid, "name": PRESET_META.get(pid, {}).get("name", pid), "description": PRESET_META.get(pid, {}).get("description", "")}
-            for pid in PRESETS
-        ]
-    }
+    out = []
+    for pid in PRESETS:
+        m = _load_manifest(pid)
+        meta = PRESET_META.get(pid, {})
+        entry = {
+            "id": pid,
+            "name": (m or {}).get("name") or meta.get("name", pid),
+            "description": (m or {}).get("description") or meta.get("description", ""),
+        }
+        if m:
+            if m.get("synthetic_data"):
+                entry["synthetic_data"] = m["synthetic_data"]
+            if m.get("endpoints"):
+                entry["capabilities"] = [f"{e.get('method', 'GET')} {e.get('path', '')}" for e in m["endpoints"]]
+            if m.get("default_goal"):
+                entry["default_goal"] = m["default_goal"]
+            if m.get("default_config"):
+                entry["default_config"] = m["default_config"]
+            if m.get("config_schema"):
+                entry["config_schema"] = m["config_schema"]
+        out.append(entry)
+    return {"presets": out}
 
 
 @app.get("/templates")

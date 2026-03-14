@@ -39,6 +39,7 @@ INTERVAL_SEC = int(os.environ.get("DEMOFORGE_AGENT_INTERVAL", "10"))
 COMMAND_TIMEOUT = int(os.environ.get("DEMOFORGE_COMMAND_TIMEOUT", "15"))
 MAX_STEPS_PER_ROUND = int(os.environ.get("DEMOFORGE_MAX_STEPS", "10"))
 ORCHESTRATOR_URL = os.environ.get("DEMOFORGE_ORCHESTRATOR_URL", "").rstrip("/")
+PRESET = os.environ.get("DEMOFORGE_PRESET", "")
 
 _running = True
 _sandbox_id = ""
@@ -125,9 +126,17 @@ FALLBACK_FOODS = ["Pizza", "Sushi", "Tacos", "Sigma", "Aura", "Vibes", "Waffles"
 
 
 def _fallback_curl_add(base_url: str) -> str:
-    """When Ollama model is missing, return a curl command to add a food so the demo still works."""
+    """When Ollama model is missing, return a curl command so the demo still works."""
+    if PRESET == "bank":
+        # Create a demo account for the bank app
+        name = f"Demo{int(time.time()) % 1000}"
+        return (
+            f"curl -s -X POST {base_url}/api/accounts "
+            f"-H 'Content-Type: application/json' "
+            f"-d '{{\"name\":\"{name}\",\"initial_balance\":100}}'"
+        )
+    # Foods app fallback
     food = FALLBACK_FOODS[int(time.time()) % len(FALLBACK_FOODS)]
-    # Escape for shell: double quotes inside single-quoted JSON
     return f"curl -s -X POST {base_url}/add -H 'Content-Type: application/json' -d '{{\"food\":\"{food}\"}}'"
 
 
@@ -176,6 +185,58 @@ def _replay_template(template_id: str, base_url: str) -> list[dict]:
         return []
 
 
+def _fetch_manifest(base_url: str) -> dict | None:
+    """Fetch manifest for current preset from orchestrator. Returns None on failure."""
+    if not PRESET or not ORCHESTRATOR_URL or not HAS_REQUESTS:
+        return None
+    try:
+        r = requests.get(f"{ORCHESTRATOR_URL}/context/{PRESET}", timeout=5)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except Exception:
+        return None
+
+
+def _system_prompt_from_manifest(manifest: dict, base_url: str, goal: str) -> str:
+    """Build system prompt from manifest. Replaces {{base_url}} in example_commands."""
+    parts = [
+        f"You are an agent controlling an app. The app is at {base_url}.",
+        f"Goal: {goal}",
+        "",
+    ]
+    desc = manifest.get("description", "").strip()
+    if desc:
+        parts.append(desc + "\n")
+    endpoints = manifest.get("endpoints", [])
+    if endpoints:
+        parts.append("API:")
+        for e in endpoints:
+            method = e.get("method", "GET")
+            path = e.get("path", "")
+            body = e.get("body")
+            line = f"- {method} {path}"
+            if body and isinstance(body, dict):
+                line += f" with JSON {body}"
+            line += "."
+            if e.get("description"):
+                line += f" {e['description']}"
+            parts.append(line)
+        parts.append("")
+    examples = manifest.get("example_commands", [])
+    if examples:
+        parts.append("Example commands (use this base URL):")
+        for ex in examples[:5]:
+            cmd = ex.replace("{{base_url}}", base_url).strip()
+            parts.append(cmd)
+        parts.append("")
+    parts.append(
+        "CRITICAL: Reply with ONLY one line - either the exact shell command (e.g. curl ...) or the word DONE. "
+        "Do NOT use markdown, backticks, or code blocks. Output the raw command only."
+    )
+    return "\n".join(parts)
+
+
 def main() -> None:
     global _sandbox_id
     _sandbox_id = os.environ.get("DEMOFORGE_SANDBOX_ID", "")
@@ -215,14 +276,31 @@ def main() -> None:
 
     _log("info", f"Agent started. Goal: {goal}. Sandbox at {base_url}. Ollama: {HAS_OLLAMA}")
 
-    system = (
-        f"You are an agent controlling a sandbox app. The app is at {base_url}.\n"
-        f"Goal: {goal}\n\n"
-        "To add a food, POST to {base_url}/add with JSON body. Example: "
-        f"curl -X POST {base_url}/add -H 'Content-Type: application/json' -d '{{\"food\":\"Pizza\"}}'\n\n"
-        "CRITICAL: Reply with ONLY one line - either the exact shell command (e.g. curl ...) or the word DONE. "
-        "Do NOT use markdown, backticks, or code blocks. Output the raw command only."
-    )
+    manifest = _fetch_manifest(base_url)
+    if manifest and manifest.get("endpoints"):
+        system = _system_prompt_from_manifest(manifest, base_url, goal)
+        _log("info", "Using manifest context for system prompt.")
+    elif PRESET == "bank":
+        system = (
+            f"You are an agent controlling a mini banking app. The app is at {base_url}.\n"
+            f"Goal: {goal}\n\n"
+            "API:\n"
+            "- Create account: POST /api/accounts with JSON {\"name\": \"string\", \"initial_balance\": number}.\n"
+            "- Transfer: POST /api/transfer with JSON {\"from_id\": int, \"to_id\": int, \"amount\": number}.\n\n"
+            f"Example create: curl -X POST {base_url}/api/accounts -H 'Content-Type: application/json' -d '{{\"name\":\"Alice\",\"initial_balance\":100}}'\n"
+            f"Example transfer: curl -X POST {base_url}/api/transfer -H 'Content-Type: application/json' -d '{{\"from_id\":1,\"to_id\":2,\"amount\":10}}'\n\n"
+            "CRITICAL: Reply with ONLY one line - either the exact shell command (e.g. curl ...) or the word DONE. "
+            "Do NOT use markdown, backticks, or code blocks. Output the raw command only."
+        )
+    else:
+        system = (
+            f"You are an agent controlling a favorite foods app. The app is at {base_url}.\n"
+            f"Goal: {goal}\n\n"
+            "To add a food, POST to /add with JSON body {\"food\":\"Pizza\"}.\n"
+            f"Example: curl -X POST {base_url}/add -H 'Content-Type: application/json' -d '{{\"food\":\"Pizza\"}}'\n\n"
+            "CRITICAL: Reply with ONLY one line - either the exact shell command (e.g. curl ...) or the word DONE. "
+            "Do NOT use markdown, backticks, or code blocks. Output the raw command only."
+        )
     messages = [{"role": "system", "content": system}]
 
     while _running:

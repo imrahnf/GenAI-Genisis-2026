@@ -28,7 +28,7 @@ body {
 /* Preset grid */
 .preset-grid h2,
 .config-panel h2,
-.scenarios-section h2,
+.templates-section h2,
 .sandboxes-section h2 {
   font-size: 1rem;
   margin: 0 0 0.75rem 0;
@@ -82,6 +82,30 @@ body {
   border-radius: 8px;
   background: #fafafa;
   margin-bottom: 1.5rem;
+}
+
+.manifest-summary {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.manifest-summary p {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.manifest-summary .synthetic-data,
+.manifest-summary .capabilities {
+  margin: 0.35rem 0;
+}
+
+.field-hint {
+  display: block;
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.25rem;
 }
 
 .config-form {

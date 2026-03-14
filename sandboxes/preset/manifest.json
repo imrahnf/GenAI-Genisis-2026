@@ -1,0 +1,40 @@
+{
+  "id": "preset",
+  "name": "Favorite Foods",
+  "description": "Flask app with synthetic food list; agent can add items via API.",
+  "synthetic_data": "In-memory SQLite food list; no real user data.",
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/add",
+      "body": { "food": "string" },
+      "description": "Add a food item."
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "description": "List foods (HTML)."
+    },
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "description": "Health check."
+    }
+  ],
+  "example_commands": [
+    "curl -s -X POST {{base_url}}/add -H 'Content-Type: application/json' -d '{\"food\":\"Pizza\"}'",
+    "curl -s -X POST {{base_url}}/add -H 'Content-Type: application/json' -d '{\"food\":\"Salad\"}'"
+  ],
+  "default_goal": "Add a new food every 10 seconds.",
+  "default_config": {
+    "APP_TITLE": "Favorite Foods"
+  },
+  "config_schema": {
+    "APP_TITLE": {
+      "label": "App title",
+      "type": "text",
+      "default": "Favorite Foods",
+      "help": "Shown in the page title and header."
+    }
+  }
+}
