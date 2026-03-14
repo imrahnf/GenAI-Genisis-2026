@@ -11,7 +11,9 @@ Flow:
   3. Agent sends the output back to the LLM; LLM replies with next command or DONE.
   4. Repeat. After DONE or max steps, sleep DEMOFORGE_AGENT_INTERVAL seconds and start again (persistent loop).
 
-Env: DEMOFORGE_SANDBOX_ID, DEMOFORGE_PORT, DEMOFORGE_GOAL, DEMOFORGE_ORCHESTRATOR_URL (for logging). On Destroy, process gets SIGTERM.
+Env: DEMOFORGE_SANDBOX_ID, DEMOFORGE_PORT, DEMOFORGE_GOAL, DEMOFORGE_ORCHESTRATOR_URL (for logging).
+If DEMOFORGE_TEMPLATE_ID is set, agent runs in replay mode: fetch template steps and run commands in order (no LLM).
+On Destroy, process gets SIGTERM.
 """
 import os
 import re
@@ -147,12 +149,69 @@ def _ask_llm(messages: list[dict], base_url: str = "") -> str:
         return "DONE"
 
 
+def _rewrite_command_for_replay(cmd: str, current_base_url: str) -> str:
+    """Replace any previous sandbox URL (e.g. http://127.0.0.1:8502) in the command with current_base_url so replay hits this sandbox."""
+    if not cmd or not current_base_url:
+        return cmd
+    # Replace old sandbox host:port with current so replayed commands hit the new container
+    out = re.sub(r"http://127\.0\.0\.1:\d+", current_base_url, cmd)
+    out = re.sub(r"http://localhost:\d+", current_base_url, out)
+    return out
+
+
+def _replay_template(template_id: str, base_url: str) -> list[dict]:
+    """Fetch template steps from orchestrator. Returns list of {command, output}."""
+    if not ORCHESTRATOR_URL or not HAS_REQUESTS:
+        return []
+    url = f"{ORCHESTRATOR_URL}/templates/{template_id}"
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code != 200:
+            return []
+        data = r.json()
+        steps = data.get("steps", [])
+        return steps if isinstance(steps, list) else []
+    except Exception as e:
+        _log("error", f"Template fetch failed: {e}")
+        return []
+
+
 def main() -> None:
     global _sandbox_id
     _sandbox_id = os.environ.get("DEMOFORGE_SANDBOX_ID", "")
     port = os.environ.get("DEMOFORGE_PORT", "8501")
     goal = os.environ.get("DEMOFORGE_GOAL", "Interact with the sandbox to fulfill the user's goal.")
+    template_id = os.environ.get("DEMOFORGE_TEMPLATE_ID", "")
     base_url = f"http://127.0.0.1:{port}"
+
+    if template_id:
+        _log("info", f"Replay mode. Template: {template_id}. Sandbox at {base_url}")
+        time.sleep(3)  # give container app time to be ready
+        steps = _replay_template(template_id, base_url)
+        if not steps:
+            _log("error", "No steps in template or failed to fetch.")
+        else:
+            _log("info", f"Fetched {len(steps)} steps, running replay.")
+        while _running and steps:
+            for step in steps:
+                if not _running:
+                    break
+                cmd = step.get("command", "").strip()
+                # Stored commands may have "Running: " or "Replay: " prefix from logging
+                for prefix in ("Running: ", "Replay: "):
+                    if cmd.startswith(prefix):
+                        cmd = cmd[len(prefix):].strip()
+                        break
+                if not cmd:
+                    continue
+                cmd = _rewrite_command_for_replay(cmd, base_url)
+                _log("command", f"Replay: {cmd}")
+                code, stdout, stderr = _run_command(cmd)
+                output = f"exit={code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+                _log("output", output[:800])
+                time.sleep(2)
+            time.sleep(INTERVAL_SEC)
+        return
 
     _log("info", f"Agent started. Goal: {goal}. Sandbox at {base_url}. Ollama: {HAS_OLLAMA}")
 

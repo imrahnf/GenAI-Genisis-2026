@@ -2,6 +2,10 @@
 
 Ephemeral demo sandboxes: one preset (favorite foods app), one shared LLM (Ollama), per-sandbox agents. Run everything on the Mac Pro; open the dashboard from your MacBook at `http://<mac-pro-tailscale-ip>:3000`.
 
+**→ [Brief analysis](docs/BRIEF_ANALYSIS.md)** — how the codebase maps to the hackathon brief; gaps and final-setting notes.
+
+**→ [Use guide](docs/USE_GUIDE.md)** — Config, Expires, Capture, Templates, Scenarios and how to test.
+
 ---
 
 ## How to run (full setup)
@@ -28,17 +32,19 @@ Later: `colima stop` / `colima start` to stop or start the daemon.
 
 ---
 
-### 2. Build the preset image (once)
+### 2. Build preset images (once)
 
-Build the image **once**. Each “Launch sandbox” starts a **new container from this image**; the backend does **not** rebuild the image on every launch.
-
-From the project root:
+All sandbox code lives under **`sandboxes/`**. Build each preset image once (no registry pull at runtime):
 
 ```bash
 docker build -t demoforge/preset:latest sandboxes/preset/
+docker build -t demoforge/bank:latest sandboxes/bank/
 ```
 
-Only run this again when you change something in `sandboxes/preset/` (e.g. the Flask app or Dockerfile).
+- **preset** — Favorite foods app (Flask + SQLite, `POST /add`).
+- **bank** — Mini banking app (accounts, transfers; `POST /api/accounts`, `POST /api/transfer`).
+
+Each “Launch sandbox” runs a container from the chosen preset image. Rebuild only when you change that preset’s code.
 
 ---
 
@@ -92,25 +98,25 @@ npm run dev
 
 ## Flow
 
-1. Open the dashboard → enter an agent goal (e.g. “Add a new food every 10 seconds”) → **Launch sandbox**.
-2. Backend starts a **container** from `demoforge/preset:latest` and an agent process; you get a sandbox URL.
-3. Open that URL → favorite foods app. The agent calls `POST /add` on the container (using Ollama or fallback).
-4. **Destroy** stops the container and the agent; the port is freed for the next launch.
+1. Open the dashboard → choose **Preset** (Favorite Foods or Bank), enter **Agent goal**, optional **Config** (JSON env), **Expires in**, optional **Template** (replay) or **Scenario** → **Launch sandbox**.
+2. Backend starts a container from the preset image and an agent; you get a sandbox URL. Optionally the agent runs in **replay** mode from a saved template (no LLM).
+3. **Capture**: Start capture → agent runs → Stop & save as template. Next launch can use that template to replay the same commands.
+4. **Reset** = new container from same preset/config. **Destroy** stops the container and the agent. **Expiry** (if set) auto-destroys the sandbox.
 
 ---
 
 ## Build once, run many
 
-- **Image** `demoforge/preset:latest`: built once with `docker build` (step 2). Rebuild only when you change `sandboxes/preset/`.
-- **Containers**: each “Launch sandbox” runs `docker run` from that image (no `docker build`). Containers are ephemeral; “Destroy” stops and removes the container.
+- **Images** are built from `sandboxes/<preset>/`. The orchestrator only runs these pre-built images (no registry pull).
+- **Containers**: each launch runs `docker run` from the selected preset image. Containers are ephemeral.
 
 ---
 
 ## Layout
 
-- **backend/** — FastAPI (`/launch`, `/destroy`, `/status`), agent manager, **agent script** (`agent.py`).
-- **sandboxes/preset/** — Favorite foods app (Flask + SQLite, `POST /add`). Source for the image you build in step 2.
-- **frontend/** — Next.js dashboard (goal form, active sandboxes, destroy).
+- **backend/** — FastAPI: `/launch` (preset, goal, config, expires_in, template_id, scenario_id), `/destroy`, `/status`, `/reset`, `/capture/start`, `/capture/stop`, `/templates`, `/scenarios`. Agent script with optional **replay mode** (template).
+- **sandboxes/preset/** — Favorite foods app. **sandboxes/bank/** — Mini banking app (accounts, transfers).
+- **frontend/** — Preset, goal, config, expiry, template, scenario; sandbox table with Logs, Capture, Reset, Destroy.
 
 ---
 
@@ -133,4 +139,4 @@ The agent is **in the repo** at `backend/agent.py`. One process is spawned per s
 
 - `OLLAMA_HOST`, `OLLAMA_MODEL` — Ollama URL and model (default `phi3:mini`).
 - `TAILSCALE_IP` — Override if `tailscale ip -4` isn’t available.
-- `PRESET_IMAGE` — Docker image name (default `demoforge/preset:latest`).
+- Presets are defined in `backend/config.py` (`PRESETS`); images must be built from `sandboxes/<key>/`.
