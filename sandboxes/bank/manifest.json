@@ -12,6 +12,12 @@
     },
     {
       "method": "POST",
+      "path": "/api/seed",
+      "body": { "count": "number", "initial_balance": "number", "name_prefix": "string" },
+      "description": "Seed many demo accounts in one call."
+    },
+    {
+      "method": "POST",
       "path": "/api/transfer",
       "body": { "from_id": "number", "to_id": "number", "amount": "number" },
       "description": "Transfer between accounts."
@@ -29,7 +35,8 @@
   ],
   "example_commands": [
     "curl -s -X POST {{base_url}}/api/accounts -H 'Content-Type: application/json' -d '{\"name\":\"Alice\",\"initial_balance\":100}'",
-    "curl -s -X POST {{base_url}}/api/transfer -H 'Content-Type: application/json' -d '{\"from_id\":1,\"to_id\":2,\"amount\":10}'"
+    "curl -s -X POST {{base_url}}/api/transfer -H 'Content-Type: application/json' -d '{\"from_id\":1,\"to_id\":2,\"amount\":10}'",
+    "curl -s -X POST {{base_url}}/api/seed -H 'Content-Type: application/json' -d '{\"count\":50,\"initial_balance\":100,\"name_prefix\":\"User\"}'"
   ],
   "default_goal": "Create an account and run a transfer.",
   "default_config": {

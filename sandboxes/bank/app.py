@@ -170,6 +170,26 @@ def create_account():
         return jsonify({"ok": True, "id": cur.lastrowid})
 
 
+@app.route("/api/seed", methods=["POST"])
+def seed_accounts():
+    """Seed the database with a number of demo accounts in a single call."""
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        count = int(data.get("count", 0))
+    except (TypeError, ValueError):
+        count = 0
+    if count <= 0 or count > 1000:
+        return jsonify({"ok": False, "error": "count must be between 1 and 1000"}), 400
+    initial_balance = float(data.get("initial_balance", 100))
+    prefix = (data.get("name_prefix") or "User")[:50]
+    with get_db() as conn:
+        for i in range(1, count + 1):
+            name = f"{prefix}{i}"
+            conn.execute("INSERT INTO accounts (name, balance) VALUES (?, ?)", (name, initial_balance))
+        conn.commit()
+    return jsonify({"ok": True, "seeded": count})
+
+
 @app.route("/api/transfer", methods=["POST"])
 def transfer():
     data = request.get_json(force=True, silent=True) or {}

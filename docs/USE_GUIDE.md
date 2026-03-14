@@ -94,9 +94,11 @@ Do this once to verify Config, Expiry, Capture, Templates, and Scenarios.
 3. Click **Launch sandbox**.
 4. In **Active sandboxes**, find the new row. The **Expires** column should show a time and “(in 5 min)” (or similar). If you had left “No expiry”, it would show “—”.
 
-### B. Config (optional)
+### B. Config (manifest-driven)
 
-1. If your preset app supports an env var (e.g. `APP_TITLE`), set **Config** to e.g. `{"APP_TITLE":"My Demo"}` and launch. Otherwise leave `{}` and skip.
+1. Click the **Bank** preset. You should see dedicated controls (e.g. **App title**, **Currency**) instead of a raw JSON textarea.
+2. Change **App title** to “Bank Demo – QA” and **Currency** to “CAD”, then launch. The sandbox page should reflect these values.
+3. For presets without a `config_schema`, the UI falls back to a raw **Config (JSON env)** textarea; you can still type `{"APP_TITLE":"My Demo"}` there.
 
 ### C. Capture and template
 
@@ -120,7 +122,29 @@ Do this once to verify Config, Expiry, Capture, Templates, and Scenarios.
 
 ---
 
-## 4. Summary
+## 4. Model configuration (Ollama)
+
+- **Where the model is configured:** The agent reads the `OLLAMA_MODEL` environment variable (default `phi3:mini`). Set this **before** starting the backend.
+- **Recommended:** Use a small, instruction-tuned model such as `llama3.1:8b` on your Mac Pro:
+
+  ```bash
+  ollama serve
+  ollama pull llama3.1:8b
+  export OLLAMA_MODEL=llama3.1:8b
+  ```
+
+- **Fallback:** If you prefer something lighter, use `phi3:mini`:
+
+  ```bash
+  ollama pull phi3:mini
+  export OLLAMA_MODEL=phi3:mini
+  ```
+
+- **Resilience:** If the configured model is missing or Ollama is down, the agent switches to a **built-in fallback** that still issues sensible `curl` commands so the presets remain usable for demos.
+
+---
+
+## 5. Summary
 
 | Feature       | Purpose |
 |---------------|--------|

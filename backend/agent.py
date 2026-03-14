@@ -231,8 +231,14 @@ def _system_prompt_from_manifest(manifest: dict, base_url: str, goal: str) -> st
             parts.append(cmd)
         parts.append("")
     parts.append(
-        "CRITICAL: Reply with ONLY one line - either the exact shell command (e.g. curl ...) or the word DONE. "
-        "Do NOT use markdown, backticks, or code blocks. Output the raw command only."
+        "CRITICAL RULES:\n"
+        "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE.\n"
+        "- If you are unsure what to do next, output DONE.\n"
+        "- You may combine multiple API calls in one shell command using simple loops or &&, e.g.:\n"
+        "  for i in $(seq 1 5); do curl ...; done\n"
+        "- You may only use shell builtins plus curl and echo. Never use python, rm, apt, brew, or any file-system or package-manager commands.\n"
+        "- Use ONLY the API endpoints and JSON shapes described above. Do NOT invent new paths or fields.\n"
+        "- Do NOT use markdown, backticks, or code fences; output the raw command only."
     )
     return "\n".join(parts)
 
@@ -289,8 +295,14 @@ def main() -> None:
             "- Transfer: POST /api/transfer with JSON {\"from_id\": int, \"to_id\": int, \"amount\": number}.\n\n"
             f"Example create: curl -X POST {base_url}/api/accounts -H 'Content-Type: application/json' -d '{{\"name\":\"Alice\",\"initial_balance\":100}}'\n"
             f"Example transfer: curl -X POST {base_url}/api/transfer -H 'Content-Type: application/json' -d '{{\"from_id\":1,\"to_id\":2,\"amount\":10}}'\n\n"
-            "CRITICAL: Reply with ONLY one line - either the exact shell command (e.g. curl ...) or the word DONE. "
-            "Do NOT use markdown, backticks, or code blocks. Output the raw command only."
+            "CRITICAL RULES:\n"
+            "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE.\n"
+            "- If you are unsure what to do next, output DONE.\n"
+            "- You may combine multiple API calls in one shell command using simple loops or &&, e.g.:\n"
+            "  for i in $(seq 1 5); do curl ...; done\n"
+            "- You may only use shell builtins plus curl and echo. Never use python, rm, apt, brew, or any file-system or package-manager commands.\n"
+            "- Use ONLY the API endpoints and JSON shapes described above. Do NOT invent new paths or fields.\n"
+            "- Do NOT use markdown, backticks, or code fences; output the raw command only."
         )
     else:
         system = (
@@ -298,13 +310,18 @@ def main() -> None:
             f"Goal: {goal}\n\n"
             "To add a food, POST to /add with JSON body {\"food\":\"Pizza\"}.\n"
             f"Example: curl -X POST {base_url}/add -H 'Content-Type: application/json' -d '{{\"food\":\"Pizza\"}}'\n\n"
-            "CRITICAL: Reply with ONLY one line - either the exact shell command (e.g. curl ...) or the word DONE. "
-            "Do NOT use markdown, backticks, or code blocks. Output the raw command only."
+            "CRITICAL RULES:\n"
+            "- Reply with ONLY one line per turn: either a single shell command (e.g. curl ...) or the word DONE.\n"
+            "- If you are unsure what to do next, output DONE.\n"
+            "- You may combine multiple API calls in one shell command using simple loops or &&, e.g.:\n"
+            "  for i in $(seq 1 5); do curl ...; done\n"
+            "- You may only use shell builtins plus curl and echo. Never use python, rm, apt, brew, or any file-system or package-manager commands.\n"
+            "- Do NOT use markdown, backticks, or code fences; output the raw command only."
         )
     messages = [{"role": "system", "content": system}]
 
     while _running:
-        messages.append({"role": "user", "content": "What command do you run next? (one line: command or DONE)"})
+        messages.append({"role": "user", "content": "What single shell command do you run next? (one line: command or DONE; if unsure, output DONE)"})
         _log("info", "Asking LLM for next command...")
 
         for step in range(MAX_STEPS_PER_ROUND):
@@ -328,7 +345,7 @@ def main() -> None:
             code, stdout, stderr = _run_command(cmd)
             output = f"exit={code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
             _log("output", output[:800])
-            messages.append({"role": "user", "content": f"Command output:\n{output}\nWhat's next? (one line: command or DONE)"})
+            messages.append({"role": "user", "content": f"Command output:\n{output}\nWhat's next? (one line: command or DONE; if unsure, output DONE)"})
 
         time.sleep(INTERVAL_SEC)
         messages = [{"role": "system", "content": system}]

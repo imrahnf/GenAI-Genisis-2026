@@ -4,7 +4,7 @@ Ephemeral demo sandboxes: one preset (favorite foods app), one shared LLM (Ollam
 
 **→ [Brief analysis](docs/BRIEF_ANALYSIS.md)** — how the codebase maps to the hackathon brief; gaps and final-setting notes.
 
-**→ [Use guide](docs/USE_GUIDE.md)** — Config, Expires, Capture, Templates, Scenarios and how to test.
+**→ [Use guide](docs/USE_GUIDE.md)** — Config, Expires, Capture, Templates and how to test.
 
 ---
 
@@ -37,12 +37,16 @@ Later: `colima stop` / `colima start` to stop or start the daemon.
 All sandbox code lives under **`sandboxes/`**. Build each preset image once (no registry pull at runtime):
 
 ```bash
+# Build all sandboxes in one go
+make build-sandboxes
+
+# or build individual presets explicitly
 docker build -t demoforge/preset:latest sandboxes/preset/
 docker build -t demoforge/bank:latest sandboxes/bank/
 ```
 
 - **preset** — Favorite foods app (Flask + SQLite, `POST /add`).
-- **bank** — Mini banking app (accounts, transfers; `POST /api/accounts`, `POST /api/transfer`).
+- **bank** — Mini banking app (accounts, transfers; `POST /api/accounts`, `POST /api/transfer`, `POST /api/seed`).
 
 Each “Launch sandbox” runs a container from the chosen preset image. Rebuild only when you change that preset’s code.
 
@@ -50,14 +54,29 @@ Each “Launch sandbox” runs a container from the chosen preset image. Rebuild
 
 ### 3. Ollama (optional, for the agent)
 
-The agent can add foods via the LLM or a **fallback list**. To use the LLM on the Mac Pro:
+The agent can add foods / drive the apps via the LLM or a **fallback list**. To use the LLM on the Mac Pro:
 
 ```bash
 ollama serve
+
+# Recommended default model (good quality, still CPU-friendly)
+ollama pull llama3.1:8b
+
+# Fallback (smaller) model also supported
 ollama pull phi3:mini
 ```
 
-Keep this running. If the model isn’t found (e.g. you see `model 'phi3:mini' not found` in the logs), the agent **still adds foods** by running a fallback `curl` to `/add` with a rotating list (Pizza, Sushi, Sigma, etc.). To use a different model, set `OLLAMA_MODEL` (e.g. `export OLLAMA_MODEL=llama3.2`).
+Then, before starting the backend, pick a model for DemoForge by setting `OLLAMA_MODEL`:
+
+```bash
+export OLLAMA_MODEL=llama3.1:8b   # recommended
+# or
+export OLLAMA_MODEL=phi3:mini     # smaller/faster fallback
+```
+
+`backend/agent.py` reads `OLLAMA_MODEL` at startup; all agents share that model.
+
+If the model isn’t found (e.g. you see `model '...'' not found` in the logs), the agent **still drives the apps** by running a fallback `curl` (e.g. to `/add` with a rotating list Pizza/Sushi/Sigma/etc.). This means the demo continues to work even if Ollama is misconfigured.
 
 ---
 
@@ -98,9 +117,9 @@ npm run dev
 
 ## Flow
 
-1. Open the dashboard → choose **Preset** (Favorite Foods or Bank), enter **Agent goal**, optional **Config** (JSON env), **Expires in**, optional **Template** (replay) or **Scenario** → **Launch sandbox**.
-2. Backend starts a container from the preset image and an agent; you get a sandbox URL. Optionally the agent runs in **replay** mode from a saved template (no LLM).
-3. **Capture**: Start capture → agent runs → Stop & save as template. Next launch can use that template to replay the same commands.
+1. Open the dashboard → choose a **Preset** (Favorite Foods or Bank), enter **Agent goal**, adjust **Config** via the preset’s controls (manifest-driven), set **Expires in** → **Launch sandbox**.
+2. Backend starts a container from the preset image and an agent; you get a sandbox URL. Optionally the agent runs in **replay** mode from a saved template (no LLM) when launched from the **Saved templates / replays** section.
+3. **Capture**: Start capture → let the agent run → Stop & save as template. Next launch can use that template to replay the same commands deterministically.
 4. **Reset** = new container from same preset/config. **Destroy** stops the container and the agent. **Expiry** (if set) auto-destroys the sandbox.
 
 ---
@@ -114,9 +133,9 @@ npm run dev
 
 ## Layout
 
-- **backend/** — FastAPI: `/launch` (preset, goal, config, expires_in, template_id, scenario_id), `/destroy`, `/status`, `/reset`, `/capture/start`, `/capture/stop`, `/templates`, `/scenarios`. Agent script with optional **replay mode** (template).
-- **sandboxes/preset/** — Favorite foods app. **sandboxes/bank/** — Mini banking app (accounts, transfers).
-- **frontend/** — Preset, goal, config, expiry, template, scenario; sandbox table with Logs, Capture, Reset, Destroy.
+- **backend/** — FastAPI: `/launch` (preset, goal, config, expires_in, template_id), `/destroy`, `/status`, `/reset`, `/capture/start`, `/capture/stop`, `/templates`, `/context/{preset}`, `/presets`. Agent script with optional **replay mode** (template).
+- **sandboxes/preset/** — Favorite foods app. **sandboxes/bank/** — Mini banking app (accounts, transfers, seeding).
+- **frontend/** — Preset grid + manifest-driven config panel (goal, config controls, expiry), Saved templates / replays section, sandbox table with Logs, Capture, Reset, Destroy.
 
 ---
 
