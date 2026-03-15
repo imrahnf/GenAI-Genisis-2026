@@ -155,11 +155,13 @@ def _emit_lifecycle_event(
 _load_backend_env()
 
 # Runtime LLM backend: agents fetch this so switching mid-run takes effect.
+# provider: "ibm_watson" when use_remote False (placeholder; still uses Ollama until IBM wired); "openai_compatible" when True.
 _llm_config = {
     "use_remote": bool(os.environ.get("OPENAI_COMPATIBLE_BASE")),
     "base": (os.environ.get("OPENAI_COMPATIBLE_BASE") or "").strip().rstrip("/"),
     "model": (os.environ.get("OPENAI_COMPATIBLE_MODEL") or "").strip(),
     "api_key": (os.environ.get("OPENAI_COMPATIBLE_API_KEY") or "").strip(),
+    "provider": "ibm_watson",
 }
 
 
@@ -215,14 +217,21 @@ class LLMConfigUpdate(BaseModel):
     api_key: str | None = None
 
 
+def _llm_provider() -> str:
+    """Return provider label: ibm_watson when local, openai_compatible when remote. Placeholder for future IBM watsonx."""
+    return "openai_compatible" if _llm_config["use_remote"] else "ibm_watson"
+
+
 @app.get("/llm-config")
 def get_llm_config():
     """Current LLM backend; agents fetch this so toggling takes effect mid-run."""
+    _llm_config["provider"] = _llm_provider()
     return {
         "use_remote": _llm_config["use_remote"],
         "base": _llm_config["base"],
         "model": _llm_config["model"],
         "api_key": _llm_config["api_key"],
+        "provider": _llm_config["provider"],
     }
 
 

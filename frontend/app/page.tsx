@@ -325,62 +325,57 @@ export default function Home() {
                   setLlmUseRemote(v);
                   persistLlmConfig({ use_remote: v });
                 }}
-                className="relative inline-flex h-8 w-[7.5rem] flex-shrink-0 rounded-full border border-stone-200 bg-stone-100 transition-colors focus:outline-none focus:ring-2 focus:ring-stone-900/20"
+                className="relative inline-flex h-8 w-[11rem] flex-shrink-0 rounded-full border border-stone-200 bg-stone-100 transition-colors focus:outline-none focus:ring-2 focus:ring-stone-900/20"
               >
                 <span
-                  className={`pointer-events-none absolute inset-y-1 flex h-6 w-[3.25rem] items-center justify-center rounded-full text-xs font-medium transition-all ${
-                    llmUseRemote ? "left-[calc(100%-4.25rem)] bg-stone-900 text-white" : "left-1 bg-white text-stone-700 shadow-sm"
+                  className={`pointer-events-none absolute inset-y-1 flex h-6 w-[5.25rem] items-center justify-center rounded-full text-xs font-medium transition-all ${
+                    llmUseRemote ? "left-[calc(100%-5.5rem)] bg-stone-900 text-white" : "left-1 bg-white text-stone-700 shadow-sm"
                   }`}
                 >
-                  {llmUseRemote ? "Remote" : "Local"}
+                  {llmUseRemote ? "Remote" : "IBM Watson"}
                 </span>
               </button>
             </div>
-            <AnimatePresence>
-              {llmUseRemote && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex flex-wrap items-end gap-3 overflow-hidden"
-                >
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-medium uppercase tracking-wider text-stone-500">Base URL</label>
-                    <input
-                      type="text"
-                      placeholder="http://localhost:8000/v1"
-                      value={llmBase}
-                      onChange={(e) => setLlmBase(e.target.value)}
-                      onBlur={() => persistLlmConfig({ base: llmBase, model: llmModel, api_key: llmApiKey })}
-                      className="input-wealthsimple min-w-[200px]"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-medium uppercase tracking-wider text-stone-500">Model</label>
-                    <input
-                      type="text"
-                      placeholder="openai/gpt-oss-20b"
-                      value={llmModel}
-                      onChange={(e) => setLlmModel(e.target.value)}
-                      onBlur={() => persistLlmConfig({ base: llmBase, model: llmModel, api_key: llmApiKey })}
-                      className="input-wealthsimple min-w-[140px]"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-medium uppercase tracking-wider text-stone-500">API key</label>
-                    <input
-                      type="password"
-                      placeholder="Optional"
-                      value={llmApiKey}
-                      onChange={(e) => setLlmApiKey(e.target.value)}
-                      onBlur={() => persistLlmConfig({ base: llmBase, model: llmModel, api_key: llmApiKey })}
-                      className="input-wealthsimple min-w-[100px]"
-                    />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <motion.div
+              initial={false}
+              animate={{ opacity: llmUseRemote ? 1 : 0, height: llmUseRemote ? "auto" : 0 }}
+              transition={{ duration: 0.2 }}
+              className={`flex flex-wrap items-end gap-3 overflow-hidden ${llmUseRemote ? "visible" : "invisible pointer-events-none"}`}
+            >
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-medium uppercase tracking-wider text-stone-500">Base URL</label>
+                <input
+                  type="text"
+                  placeholder="http://localhost:8000/v1"
+                  value={llmBase}
+                  onChange={(e) => setLlmBase(e.target.value)}
+                  onBlur={() => persistLlmConfig({ base: llmBase, model: llmModel, api_key: llmApiKey })}
+                  className="input-wealthsimple min-w-[200px]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-medium uppercase tracking-wider text-stone-500">Model</label>
+                <input
+                  type="text"
+                  placeholder="openai/gpt-oss-20b"
+                  value={llmModel}
+                  onChange={(e) => setLlmModel(e.target.value)}
+                  onBlur={() => persistLlmConfig({ base: llmBase, model: llmModel, api_key: llmApiKey })}
+                  className="input-wealthsimple min-w-[140px]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-medium uppercase tracking-wider text-stone-500">API key</label>
+                <input
+                  type="password"
+                  placeholder="Optional"
+                  value={llmApiKey}
+                  onChange={(e) => setLlmApiKey(e.target.value)}
+                  onBlur={() => persistLlmConfig({ base: llmBase, model: llmModel, api_key: llmApiKey })}
+                  className="input-wealthsimple min-w-[100px]"
+                />
+              </div>
+            </motion.div>
           </div>
         </div>
       </header>

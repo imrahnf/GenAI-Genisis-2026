@@ -211,6 +211,8 @@ def _ask_llm(messages: list[dict], base_url: str = "", max_tokens: int = 0) -> s
     if not model:
         model = OPENAI_COMPATIBLE_MODEL or "default"
     api_key = (runtime.get("api_key") or "").strip() if isinstance(runtime, dict) else OPENAI_COMPATIBLE_API_KEY
+    provider = (runtime.get("provider") or "").strip() if isinstance(runtime, dict) else ""
+    # TODO: when provider == "ibm_watson", call IBM watsonx API here; until then, use_remote/base logic unchanged (Ollama when use_remote False).
     if runtime is None and use_remote:
         use_remote = bool(base)
     elif use_remote and not base:

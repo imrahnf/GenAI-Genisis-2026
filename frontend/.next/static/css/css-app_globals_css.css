@@ -682,6 +682,12 @@ video {
 .pointer-events-none {
   pointer-events: none;
 }
+.visible {
+  visibility: visible;
+}
+.invisible {
+  visibility: hidden;
+}
 .absolute {
   position: absolute;
 }
@@ -698,8 +704,8 @@ video {
 .left-1 {
   left: 0.25rem;
 }
-.left-\[calc\(100\%-4\.25rem\)\] {
-  left: calc(100% - 4.25rem);
+.left-\[calc\(100\%-5\.5rem\)\] {
+  left: calc(100% - 5.5rem);
 }
 .top-0 {
   top: 0px;
@@ -801,11 +807,11 @@ video {
 .w-9 {
   width: 2.25rem;
 }
-.w-\[3\.25rem\] {
-  width: 3.25rem;
+.w-\[11rem\] {
+  width: 11rem;
 }
-.w-\[7\.5rem\] {
-  width: 7.5rem;
+.w-\[5\.25rem\] {
+  width: 5.25rem;
 }
 .w-full {
   width: 100%;
