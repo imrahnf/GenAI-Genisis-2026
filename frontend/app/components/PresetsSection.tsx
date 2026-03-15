@@ -51,7 +51,16 @@ export function PresetsSection({
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         {filtered.map((p) => {
           const isSelected = selectedPreset === p.id;
-          const isSpending = p.id === "spending" || p.name.includes("Spending & Anomaly");
+          const nameLower = p.name.toLowerCase();
+          const isSpending = p.id === "spending" || nameLower.includes("spending & anomaly");
+          const isFood = p.id === "preset" || nameLower.includes("favorite foods");
+          const isBank = p.id === "bank" || nameLower.includes("bank");
+
+          let thumbSrc: string | null = null;
+          if (isSpending) thumbSrc = "/opengraph-image.png";
+          else if (isFood) thumbSrc = "/food.png";
+          else if (isBank) thumbSrc = "/bank.png";
+
           return (
             <button
               key={p.id}
@@ -61,14 +70,9 @@ export function PresetsSection({
                 isSelected ? "border-accent/50 ring-1 ring-accent/20" : "hover:border-[#404040]"
               }`}
             >
-              {isSpending ? (
+              {thumbSrc ? (
                 <div className="h-[100px] overflow-hidden relative">
-                  <Image
-                    src="/opengraph-image.png"
-                    alt={p.name}
-                    fill
-                    className="object-cover opacity-85"
-                  />
+                  <Image src={thumbSrc} alt={p.name} fill className="object-cover opacity-85" />
                 </div>
               ) : (
                 <div className="h-[100px] overflow-hidden bg-secondary/80 relative transition-all duration-300 group-hover:opacity-90" />
