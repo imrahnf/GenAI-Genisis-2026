@@ -26,20 +26,20 @@ export function PresetsSection({
   return (
     <div className="flex flex-col gap-6">
       {onSearchChange && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-card border border-border rounded-2xl text-muted-foreground focus-within:border-accent/50 transition-colors max-w-md">
-          <Search size={15} className="flex-shrink-0 text-muted-foreground" />
+        <div className="card-dev flex items-center gap-3 px-4 py-3 text-zinc-400 focus-within:border-cyan-400/50 transition-colors max-w-md">
+          <Search size={15} className="flex-shrink-0 text-zinc-500" />
           <input
             type="text"
             placeholder="Search presets"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground outline-none min-w-0"
+            className="flex-1 bg-transparent text-[14px] text-zinc-50 placeholder:text-zinc-500 outline-none min-w-0"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => onSearchChange("")}
-              className="flex-shrink-0 p-1 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              className="flex-shrink-0 p-1 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
               aria-label="Clear search"
             >
               <X size={14} />
@@ -55,24 +55,24 @@ export function PresetsSection({
               key={p.id}
               type="button"
               onClick={() => onSelectPreset(isSelected ? null : p.id)}
-              className={`rounded-2xl overflow-hidden border bg-card text-left transition-all duration-300 cursor-pointer group hover:translateY(-2px) ${
-                isSelected ? "border-accent/40 ring-1 ring-accent/20" : "border-border hover:border-accent/40"
+              className={`card-dev overflow-hidden text-left transition-all duration-300 cursor-pointer group hover:translateY(-2px) ${
+                isSelected ? "border-cyan-400/50 ring-1 ring-cyan-400/20" : "hover:border-zinc-700"
               }`}
             >
-              <div className="h-[100px] overflow-hidden bg-secondary/50 relative transition-all duration-300 group-hover:opacity-90" />
+              <div className="h-[100px] overflow-hidden bg-zinc-800/50 relative transition-all duration-300 group-hover:opacity-90" />
               <div className="px-5 py-4 flex flex-col gap-2">
-                <p className="text-[15px] text-foreground font-medium">{p.name}</p>
+                <p className="text-[15px] text-zinc-50 font-medium font-sans tracking-tight">{p.name}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-400 font-mono">
                     Flask · SQLite
                   </span>
                   {p.synthetic_data && (
-                    <span className="rounded-full bg-accent/20 text-accent px-2 py-0.5 text-[10px] border border-accent/30">
+                    <span className="rounded-full bg-cyan-500/20 text-cyan-400 px-2 py-0.5 text-[10px] border border-cyan-500/30 font-mono">
                       Synthetic data
                     </span>
                   )}
                 </div>
-                <p className="text-[12px] text-muted-foreground line-clamp-2">{p.description}</p>
+                <p className="text-[12px] text-zinc-400 line-clamp-2">{p.description}</p>
               </div>
             </button>
           );
@@ -81,13 +81,13 @@ export function PresetsSection({
       {filtered.length === 0 && (
         <div className="py-16 text-center">
           <div className="flex justify-center mb-3">
-            <FolderOpen size={28} className="text-muted-foreground/60" />
+            <FolderOpen size={28} className="text-zinc-500" />
           </div>
-          <p className="text-muted-foreground text-[14px] font-medium">
+          <p className="text-zinc-400 text-[14px] font-medium">
             {searchQuery ? `No presets match "${searchQuery}"` : "No presets loaded."}
           </p>
           {!searchQuery && (
-            <p className="text-muted-foreground/80 text-[13px] mt-1">Check the backend is running.</p>
+            <p className="text-zinc-500 text-[13px] mt-1">Check the backend is running.</p>
           )}
         </div>
       )}

@@ -20,14 +20,14 @@ interface SidebarProps {
 
 export function Sidebar({ activeSection, onNavigate, onSettingsClick, sandboxesCount = 0 }: SidebarProps) {
   return (
-    <aside className="w-[240px] min-w-[240px] h-screen flex flex-col bg-sidebar border-r border-sidebar-border flex-shrink-0">
-      <div className="px-5 py-5 border-b border-sidebar-border">
+    <aside className="w-[240px] min-w-[240px] h-screen flex flex-col bg-zinc-950 border-r border-zinc-800 flex-shrink-0">
+      <div className="px-5 py-5 border-b border-zinc-800">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-            <span className="font-serif text-[18px] text-accent-foreground leading-none">D</span>
+          <div className="w-8 h-8 rounded-lg bg-cyan-400 flex items-center justify-center">
+            <span className="font-sans text-[18px] font-semibold tracking-tight text-zinc-950 leading-none">D</span>
           </div>
           <div>
-            <p className="text-[13px] text-sidebar-foreground leading-tight">DemoForge</p>
+            <p className="text-[13px] text-zinc-50 leading-tight">DemoForge</p>
             <p className="text-[11px] text-muted-foreground leading-tight">Sandbox · Deploy</p>
           </div>
         </div>
@@ -44,14 +44,14 @@ export function Sidebar({ activeSection, onNavigate, onSettingsClick, sandboxesC
               onClick={() => onNavigate(item.id)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] text-left w-full transition-colors ${
                 isActive
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
               }`}
             >
               <Icon size={14} />
               {item.label}
               {item.id === "sandboxes" && sandboxesCount > 0 && (
-                <span className="ml-auto text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded-full">
+                <span className="ml-auto text-[10px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full">
                   {sandboxesCount}
                 </span>
               )}
@@ -60,18 +60,18 @@ export function Sidebar({ activeSection, onNavigate, onSettingsClick, sandboxesC
         })}
       </nav>
 
-      <div className="px-3 py-3 border-t border-sidebar-border flex flex-col gap-0.5">
+      <div className="px-3 py-3 border-t border-zinc-800 flex flex-col gap-0.5">
         <button
           type="button"
           onClick={onSettingsClick}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-[12px] text-muted-foreground hover:text-foreground hover:bg-secondary/50 w-full transition-colors"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-[12px] text-zinc-400 hover:text-white hover:bg-zinc-800/50 w-full transition-colors"
         >
           <Settings size={13} />
           Settings
         </button>
         <button
           type="button"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] text-muted-foreground hover:text-foreground hover:bg-secondary/50 w-full transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] text-zinc-400 hover:text-white hover:bg-zinc-800/50 w-full transition-colors"
         >
           <div className="w-5 h-5 rounded-full bg-secondary border border-border flex items-center justify-center">
             <User size={11} />

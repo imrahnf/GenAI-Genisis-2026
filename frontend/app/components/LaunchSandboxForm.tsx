@@ -47,16 +47,16 @@ export function LaunchSandboxForm({
   return (
     <div className="flex flex-col gap-10 mt-2 pb-12">
       <div className="flex gap-[45px] items-start">
-        <div className="w-[320px] h-[180px] shrink-0 rounded-2xl border-2 border-border bg-secondary overflow-hidden opacity-50 flex items-center justify-center">
-          <span className="text-muted-foreground text-sm">Preview pending launch...</span>
+        <div className="w-[320px] h-[180px] shrink-0 rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden opacity-60 flex items-center justify-center">
+          <span className="text-zinc-500 text-sm font-mono">Preview pending launch...</span>
         </div>
         <div className="flex flex-col py-2">
-          <h2 className="text-[20px] font-normal text-foreground m-0 leading-none mb-4">Launch sandbox</h2>
-          <p className="text-[16px] text-muted-foreground leading-none m-0">{presetName}</p>
+          <h2 className="text-[20px] font-normal text-zinc-50 m-0 leading-none mb-4 font-sans tracking-tight">Launch sandbox</h2>
+          <p className="text-[16px] text-zinc-400 leading-none m-0 font-mono">{presetName}</p>
         </div>
       </div>
 
-      <div className="h-px bg-border w-full" />
+      <div className="h-px bg-zinc-800 w-full" />
 
       <form onSubmit={onSubmit} className="flex flex-col gap-8 max-w-[800px]">
         {error && (
@@ -64,20 +64,20 @@ export function LaunchSandboxForm({
         )}
 
         {/* Deployment Settings / Config */}
-        <div className="border border-border rounded-2xl bg-secondary/30 overflow-hidden">
+        <div className="card-dev overflow-hidden">
           <button
             type="button"
             onClick={() => setSettingsOpen(!settingsOpen)}
-            className="w-full flex items-center gap-4 px-5 py-6 hover:bg-secondary/40 transition-colors"
+            className="w-full flex items-center gap-4 px-5 py-6 hover:bg-zinc-800/50 transition-colors"
           >
-            <Settings size={20} className="text-muted-foreground flex-shrink-0" />
-            <span className="text-[18px] font-normal text-foreground">Deployment Settings</span>
+            <Settings size={20} className="text-zinc-500 flex-shrink-0" />
+            <span className="text-[18px] font-normal text-zinc-50 font-sans tracking-tight">Deployment Settings</span>
             <div className="ml-auto">
-              {settingsOpen ? <ChevronDown size={20} className="text-muted-foreground" /> : <ChevronRight size={20} className="text-muted-foreground" />}
+              {settingsOpen ? <ChevronDown size={20} className="text-zinc-500" /> : <ChevronRight size={20} className="text-zinc-500" />}
             </div>
           </button>
           {settingsOpen && (
-            <div className="px-5 pb-6 pt-2 border-t border-border/50">
+            <div className="px-5 pb-6 pt-2 border-t border-zinc-800">
               {hasConfigSchema && preset ? (
                 <div className="grid gap-4 md:grid-cols-2">
                   {Object.entries(preset.config_schema!).map(([key, field]) => {
@@ -87,21 +87,21 @@ export function LaunchSandboxForm({
                     if (type === "boolean") {
                       return (
                         <div className="flex flex-row items-center gap-3 md:col-span-2" key={key}>
-                          <label className="min-w-[120px] text-sm text-foreground">{label}</label>
+                          <label className="min-w-[120px] text-sm text-zinc-50 font-sans">{label}</label>
                           <input
                             type="checkbox"
                             checked={Boolean(value)}
                             onChange={(e) => onConfigStateChange({ ...configState, [key]: e.target.checked })}
-                            className="h-4 w-4 rounded border-border bg-input-background"
+                            className="h-4 w-4 rounded border-zinc-700 bg-zinc-900"
                           />
-                          {field.help && <span className="text-xs text-muted-foreground">{field.help}</span>}
+                          {field.help && <span className="text-xs text-zinc-500">{field.help}</span>}
                         </div>
                       );
                     }
                     if (type === "select" && field.options?.length) {
                       return (
                         <div className="flex flex-col gap-1.5" key={key}>
-                          <label className="text-sm text-foreground">{label}</label>
+                          <label className="text-sm text-zinc-50 font-sans">{label}</label>
                           <select
                             value={value !== undefined && value !== null ? String(value) : ""}
                             onChange={(e) => onConfigStateChange({ ...configState, [key]: e.target.value })}
@@ -111,7 +111,7 @@ export function LaunchSandboxForm({
                               <option key={String(opt)} value={String(opt)}>{String(opt)}</option>
                             ))}
                           </select>
-                          {field.help && <span className="text-xs text-muted-foreground">{field.help}</span>}
+                          {field.help && <span className="text-xs text-zinc-500">{field.help}</span>}
                         </div>
                       );
                     }
@@ -124,14 +124,14 @@ export function LaunchSandboxForm({
                           onChange={(e) => onConfigStateChange({ ...configState, [key]: type === "number" ? Number(e.target.value) : e.target.value })}
                           className="input-theme"
                         />
-                        {field.help && <span className="text-xs text-muted-foreground">{field.help}</span>}
+                        {field.help && <span className="text-xs text-zinc-500">{field.help}</span>}
                       </div>
                     );
                   })}
                 </div>
               ) : (
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-sm text-foreground">Config (JSON)</label>
+                  <label className="text-sm text-zinc-50 font-sans">Config (JSON)</label>
                   <textarea
                     value={configJson}
                     onChange={(e) => onConfigJsonChange(e.target.value)}
@@ -146,22 +146,22 @@ export function LaunchSandboxForm({
         </div>
 
         {/* Agent Settings */}
-        <div className="border border-border rounded-2xl bg-secondary/30 overflow-hidden">
+        <div className="card-dev overflow-hidden">
           <button
             type="button"
             onClick={() => setAgentOpen(!agentOpen)}
-            className="w-full flex items-center gap-4 px-5 py-6 hover:bg-secondary/40 transition-colors"
+            className="w-full flex items-center gap-4 px-5 py-6 hover:bg-zinc-800/50 transition-colors"
           >
-            <Bot size={20} className="text-muted-foreground flex-shrink-0" />
-            <span className="text-[18px] font-normal text-foreground">Agent Settings</span>
+            <Bot size={20} className="text-zinc-500 flex-shrink-0" />
+            <span className="text-[18px] font-normal text-zinc-50 font-sans tracking-tight">Agent Settings</span>
             <div className="ml-auto">
-              {agentOpen ? <ChevronDown size={20} className="text-muted-foreground" /> : <ChevronRight size={20} className="text-muted-foreground" />}
+              {agentOpen ? <ChevronDown size={20} className="text-zinc-500" /> : <ChevronRight size={20} className="text-zinc-500" />}
             </div>
           </button>
           {agentOpen && (
-            <div className="px-5 pb-6 pt-2 border-t border-border/50 flex flex-col gap-6">
+            <div className="px-5 pb-6 pt-2 border-t border-zinc-800 flex flex-col gap-6">
               <div className="flex flex-col gap-2">
-                <label className="text-sm text-foreground">Goal</label>
+                <label className="text-sm text-zinc-50 font-sans">Goal</label>
                 <textarea
                   value={goal}
                   onChange={(e) => onGoalChange(e.target.value)}
@@ -169,10 +169,10 @@ export function LaunchSandboxForm({
                   rows={2}
                   className="input-theme min-h-[80px] resize-y"
                 />
-                <span className="text-[11px] text-muted-foreground">Runs continuously until the sandbox is destroyed.</span>
+                <span className="text-[11px] text-zinc-500">Runs continuously until the sandbox is destroyed.</span>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-sm text-foreground">Init goal (optional)</label>
+                <label className="text-sm text-zinc-50 font-sans">Init goal (optional)</label>
                 <textarea
                   value={initGoal}
                   onChange={(e) => onInitGoalChange(e.target.value)}
@@ -180,7 +180,7 @@ export function LaunchSandboxForm({
                   rows={1}
                   className="input-theme"
                 />
-                <span className="text-[11px] text-muted-foreground">Run once when the container is up, then the agent goal runs continuously.</span>
+                <span className="text-[11px] text-zinc-500">Run once when the container is up, then the agent goal runs continuously.</span>
               </div>
             </div>
           )}
@@ -188,7 +188,7 @@ export function LaunchSandboxForm({
 
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-foreground">Expires in</label>
+            <label className="text-sm text-zinc-50 font-sans">Expires in</label>
             <select
               value={expiresIn ?? ""}
               onChange={(e) => onExpiresInChange(e.target.value === "" ? null : Number(e.target.value))}

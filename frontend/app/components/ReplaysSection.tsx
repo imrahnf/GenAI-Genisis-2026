@@ -13,13 +13,13 @@ interface ReplaysSectionProps {
 export function ReplaysSection({ templates, onLaunchReplay, loading }: ReplaysSectionProps) {
   if (templates.length === 0) {
     return (
-      <div className="border border-border rounded-2xl bg-card overflow-hidden">
+      <div className="card-dev overflow-hidden">
         <div className="px-6 py-16 text-center">
           <div className="flex justify-center mb-3">
-            <Film size={28} className="text-muted-foreground/60" />
+            <Film size={28} className="text-zinc-500" />
           </div>
-          <p className="text-muted-foreground text-[14px] font-medium">No templates yet</p>
-          <p className="text-muted-foreground/80 text-[13px] mt-1">
+          <p className="text-zinc-400 text-[14px] font-medium">No templates yet</p>
+          <p className="text-zinc-500 text-[13px] mt-1">
             Launch a sandbox from Presets, then use Capture to record a walkthrough.
           </p>
         </div>
@@ -28,23 +28,23 @@ export function ReplaysSection({ templates, onLaunchReplay, loading }: ReplaysSe
   }
 
   return (
-    <div className="border border-border rounded-2xl bg-card overflow-hidden">
-      <div className="flex items-center gap-4 px-5 py-3 border-b border-border bg-secondary/20">
-        <span className="text-[11px] text-muted-foreground uppercase tracking-wider w-[200px]">Template</span>
-        <span className="text-[11px] text-muted-foreground uppercase tracking-wider flex-1">Preset</span>
-        <span className="text-[11px] text-muted-foreground uppercase tracking-wider w-[80px]">Steps</span>
+    <div className="card-dev overflow-hidden">
+      <div className="flex items-center gap-4 px-5 py-3 border-b border-zinc-800 bg-zinc-900/60">
+        <span className="text-[11px] text-zinc-400 uppercase tracking-wider w-[200px] font-sans">Template</span>
+        <span className="text-[11px] text-zinc-400 uppercase tracking-wider flex-1 font-sans">Preset</span>
+        <span className="text-[11px] text-zinc-400 uppercase tracking-wider w-[80px] font-sans">Steps</span>
         <div className="w-[120px]" />
       </div>
       {templates.map((t, index) => (
         <div
           key={t.id}
-          className={`flex items-center gap-4 px-5 py-4 hover:bg-secondary/30 transition-colors ${
-            index !== templates.length - 1 ? "border-b border-border" : ""
+          className={`flex items-center gap-4 px-5 py-4 hover:bg-zinc-800/50 transition-colors ${
+            index !== templates.length - 1 ? "border-b border-zinc-800" : ""
           }`}
         >
-          <p className="text-[13px] text-foreground font-medium w-[200px] truncate">{t.name}</p>
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground">{t.preset}</span>
-          <span className="text-[12px] text-muted-foreground w-[80px]">{t.steps_count} steps</span>
+          <p className="text-[13px] text-zinc-50 font-medium w-[200px] truncate font-sans tracking-tight">{t.name}</p>
+          <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400 font-mono">{t.preset}</span>
+          <span className="text-[12px] text-zinc-400 w-[80px] font-mono">{t.steps_count} steps</span>
           <button
             type="button"
             onClick={() => onLaunchReplay(t)}

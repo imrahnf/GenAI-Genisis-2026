@@ -61,20 +61,20 @@ function LifecycleNode({
 
   const ballClass =
     nodeType === "destroy"
-      ? "bg-stone-300 border-2 border-stone-400 shadow-inner"
+      ? "bg-zinc-500 border border-zinc-400 shadow-inner"
       : nodeType === "replay"
-        ? "bg-sky-400 border-2 border-sky-500 shadow-md"
+        ? "bg-blue-500 border border-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
         : nodeType === "capture_start" || nodeType === "capture_stop"
-          ? "bg-rose-400 border-2 border-rose-500 shadow-md"
+          ? "bg-rose-500 border border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.4)]"
           : isActive
-            ? "bg-emerald-500 border-2 border-emerald-600 shadow-md animate-pulse"
-            : "bg-emerald-400 border-2 border-emerald-500 shadow-md";
+            ? "bg-cyan-500 border border-cyan-400 shadow-[0_0_14px_rgba(34,211,238,0.5)] active-pulse"
+            : "bg-cyan-600/90 border border-cyan-500/80 shadow-[0_0_10px_rgba(34,211,238,0.3)]";
 
   return (
     <div className="group flex flex-col items-center gap-0.5">
-      <Handle type="target" position={Position.Left} className="!w-2 !h-2 !border-2 !border-stone-400 !bg-white" />
-      <Handle type="source" position={Position.Right} className="!w-2 !h-2 !border-2 !border-stone-400 !bg-white" />
-      <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap max-w-[72px] truncate" title={tag}>
+      <Handle type="target" position={Position.Left} className="!w-2 !h-2 !border-2 !border-zinc-500 !bg-zinc-200" />
+      <Handle type="source" position={Position.Right} className="!w-2 !h-2 !border-2 !border-zinc-500 !bg-zinc-200" />
+      <span className="text-[10px] font-medium text-zinc-400 whitespace-nowrap max-w-[72px] truncate font-mono" title={tag}>
         {tag}
       </span>
       <div
@@ -102,11 +102,11 @@ function buildGraph(
   const captureStartBySandbox: { sandbox_id: string; id: string; ts: number }[] = [];
   const captureStopByTemplate = new Map<string, string>();
 
-  const edgeStyle = { stroke: "#78716c", strokeWidth: 2 };
+  const edgeStyle = { stroke: "#52525b", strokeWidth: 2 };
   const edgeLabelProps = {
     labelShowBg: true,
-    labelStyle: { fontSize: 10, fill: "#78716c" },
-    labelBgStyle: { fill: "#fafaf9", stroke: "#e7e5e4" },
+    labelStyle: { fontSize: 10, fill: "#a1a1aa" },
+    labelBgStyle: { fill: "#18181b", stroke: "#27272a" },
     labelBgPadding: [4, 2] as [number, number],
     labelBgBorderRadius: 4,
   };
@@ -235,14 +235,14 @@ function LifecycleGraphInner({
   }, [events, activeSandboxIds, setNodes, setEdges]);
 
   return (
-    <div className="lifecycle-graph h-[420px] w-full rounded-xl border border-border bg-secondary/20">
+    <div className="lifecycle-graph h-[420px] w-full rounded-xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-xl">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
-        defaultEdgeOptions={{ type: "smoothstep", style: { stroke: "#78716c", strokeWidth: 2 } }}
+        defaultEdgeOptions={{ type: "smoothstep", style: { stroke: "#52525b", strokeWidth: 2 } }}
         connectionMode={"loose" as ConnectionMode}
         fitView
         fitViewOptions={{ padding: 0.2 }}
@@ -250,10 +250,10 @@ function LifecycleGraphInner({
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
       >
-        <Background gap={12} size={1} color="#404040" />
+        <Background gap={12} size={1} color="#27272a" />
         <Controls showInteractive={false} />
         <MiniMap nodeColor={(n) => (n.data?.nodeType === "destroy" ? "#a8a29e" : n.data?.nodeType === "replay" ? "#0ea5e9" : n.data?.nodeType === "capture_start" || n.data?.nodeType === "capture_stop" ? "#e11d48" : "#059669")} />
-        <Panel position="top-left" className="text-xs font-medium text-muted-foreground">
+        <Panel position="top-left" className="text-xs font-medium text-zinc-400 font-sans">
           Lifecycle · {events.length} events
         </Panel>
       </ReactFlow>

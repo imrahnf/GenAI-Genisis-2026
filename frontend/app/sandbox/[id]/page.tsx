@@ -100,9 +100,9 @@ export default function SandboxDetail({ params }: { params: { id: string } }) {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-background text-foreground p-8">
-        <p className="text-muted-foreground">Loading sandbox…</p>
-        <Link href="/" className="inline-block mt-4 text-sm text-muted-foreground hover:text-foreground">
+      <main className="min-h-screen bg-zinc-950 text-zinc-50 p-8">
+        <p className="text-zinc-400 font-mono">Loading sandbox…</p>
+        <Link href="/" className="inline-block mt-4 text-sm text-zinc-400 hover:text-white transition-colors font-sans">
           ← Back to control panel
         </Link>
       </main>
@@ -111,9 +111,9 @@ export default function SandboxDetail({ params }: { params: { id: string } }) {
 
   if (error || !sandbox) {
     return (
-      <main className="min-h-screen bg-background text-foreground p-8">
-        <p className="text-destructive">{error || "Sandbox not found."}</p>
-        <Link href="/" className="inline-block mt-4 text-sm text-muted-foreground hover:text-foreground">
+      <main className="min-h-screen bg-zinc-950 text-zinc-50 p-8">
+        <p className="text-red-400">{error || "Sandbox not found."}</p>
+        <Link href="/" className="inline-block mt-4 text-sm text-zinc-400 hover:text-white transition-colors font-sans">
           ← Back to control panel
         </Link>
       </main>
@@ -123,27 +123,27 @@ export default function SandboxDetail({ params }: { params: { id: string } }) {
   const status = sandbox.expires_at && Date.now() / 1000 > sandbox.expires_at ? "Expired" : "Running";
 
   return (
-    <main className="min-h-screen bg-background text-foreground font-sans">
+    <main className="min-h-screen bg-zinc-950 text-zinc-50 font-sans">
       <div className="flex flex-col gap-10 p-8 max-w-[1070px] mx-auto pb-12">
         <div className="flex gap-[45px] items-start">
-          <div className="w-[320px] h-[200px] shrink-0 rounded-2xl border-2 border-border bg-secondary overflow-hidden relative">
+          <div className="w-[320px] h-[200px] shrink-0 rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden relative">
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-muted-foreground text-sm">Sandbox preview</span>
+              <span className="text-zinc-500 text-sm font-mono">Sandbox preview</span>
             </div>
           </div>
           <div className="flex flex-col flex-1 min-w-0 py-2">
-            <h1 className="text-[20px] font-normal text-foreground m-0 leading-none mb-4">{sandbox.sandbox_id}</h1>
-            <p className="text-[14px] text-muted-foreground mb-1">
-              Preset <strong className="text-foreground">{sandbox.preset ?? "preset"}</strong> ·{" "}
+            <h1 className="text-[20px] font-normal text-zinc-50 m-0 leading-none mb-4 font-mono tracking-tight">{sandbox.sandbox_id}</h1>
+            <p className="text-[14px] text-zinc-400 mb-1 font-sans">
+              Preset <strong className="text-zinc-50 font-mono">{sandbox.preset ?? "preset"}</strong> ·{" "}
               <span
-                className={`inline-flex px-2 py-0.5 rounded-full text-xs ${
-                  status === "Expired" ? "bg-destructive/20 text-destructive" : "bg-accent/20 text-accent border border-accent/30"
+                className={`inline-flex px-2 py-0.5 rounded-full text-xs font-mono ${
+                  status === "Expired" ? "bg-red-500/20 text-red-400" : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
                 }`}
               >
                 {status}
               </span>
               {sandbox.template_id && (
-                <span className="ml-1.5 inline-flex px-2 py-0.5 rounded-full text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                <span className="ml-1.5 inline-flex px-2 py-0.5 rounded-full text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 font-mono">
                   Replay
                 </span>
               )}
@@ -152,25 +152,25 @@ export default function SandboxDetail({ params }: { params: { id: string } }) {
               href={sandbox.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[18px] text-foreground hover:text-accent transition-colors leading-none block mb-2"
+              className="text-[18px] text-zinc-50 hover:text-cyan-400 transition-colors leading-none block mb-2 font-mono"
             >
               {sandbox.url}
             </a>
-            <p className="text-[14px] text-muted-foreground mb-4">
-              <strong className="text-foreground">Goal:</strong> {sandbox.goal}
+            <p className="text-[14px] text-zinc-400 mb-4 font-sans">
+              <strong className="text-zinc-50">Goal:</strong> {sandbox.goal}
             </p>
-            <p className="text-[14px] text-muted-foreground mb-6">
-              <strong className="text-foreground">Expires:</strong> {formatExpires(sandbox.expires_at)}
+            <p className="text-[14px] text-zinc-400 mb-6 font-sans">
+              <strong className="text-zinc-50">Expires:</strong> {formatExpires(sandbox.expires_at)}
             </p>
             <div className="flex items-center gap-4 mt-auto">
-              <span className="text-muted-foreground text-[14px]">
+              <span className="text-zinc-400 text-[14px] font-mono">
                 Logs ({sandbox.logs?.length ?? 0})
               </span>
               {sandbox.capture_active ? (
                 <button
                   type="button"
                   onClick={() => handleCaptureStop(false, "")}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-accent/10 text-accent hover:bg-accent/20 transition-colors text-[14px] font-medium border border-accent/20"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors text-[14px] font-medium border border-cyan-500/30 text-white"
                 >
                   <Video size={16} />
                   Stop recording
@@ -179,7 +179,7 @@ export default function SandboxDetail({ params }: { params: { id: string } }) {
                 <button
                   type="button"
                   onClick={handleCaptureStart}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-accent/10 text-accent hover:bg-accent/20 transition-colors text-[14px] font-medium border border-accent/20"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors text-[14px] font-medium border border-cyan-500/30"
                 >
                   <Video size={16} />
                   Capture
@@ -188,7 +188,7 @@ export default function SandboxDetail({ params }: { params: { id: string } }) {
               <button
                 type="button"
                 onClick={handleReset}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-secondary text-foreground hover:bg-secondary/80 transition-colors text-[14px] font-medium"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 transition-colors text-[14px] font-medium border border-zinc-700"
               >
                 <RotateCcw size={16} />
                 Reset
@@ -196,7 +196,7 @@ export default function SandboxDetail({ params }: { params: { id: string } }) {
               <button
                 type="button"
                 onClick={handleDestroy}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-secondary text-foreground hover:bg-secondary/80 transition-colors text-[14px] font-medium"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 transition-colors text-[14px] font-medium border border-zinc-700"
               >
                 <Trash2 size={16} />
                 Destroy
@@ -205,43 +205,43 @@ export default function SandboxDetail({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        <div className="h-px bg-border w-full" />
+        <div className="h-px bg-zinc-800 w-full" />
 
-        <div className="border border-border rounded-[16px] bg-[#242424] overflow-hidden">
+        <div className="card-dev overflow-hidden">
           <button
             type="button"
             onClick={() => setLogsOpen(!logsOpen)}
-            className="w-full flex items-center gap-4 px-6 py-6 hover:bg-secondary/20 transition-colors"
+            className="w-full flex items-center gap-4 px-6 py-6 hover:bg-zinc-800/50 transition-colors"
           >
-            {logsOpen ? <ChevronDown size={20} className="text-muted-foreground" /> : <ChevronRight size={20} className="text-muted-foreground" />}
-            <FileText size={18} className="text-muted-foreground flex-shrink-0" />
-            <span className="text-[20px] font-normal text-foreground">Agent Logs</span>
+            {logsOpen ? <ChevronDown size={20} className="text-zinc-500" /> : <ChevronRight size={20} className="text-zinc-500" />}
+            <FileText size={18} className="text-zinc-500 flex-shrink-0" />
+            <span className="text-[20px] font-normal text-zinc-50 font-sans tracking-tight">Agent Logs</span>
             {sandbox.logs && sandbox.logs.length > 0 && (
-              <span className="flex items-center gap-1.5 text-[11px] text-accent ml-auto">
-                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+              <span className="flex items-center gap-1.5 text-[11px] text-cyan-400 ml-auto font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
                 Live
               </span>
             )}
           </button>
           {logsOpen && (
-            <div className="px-[60px] pb-8 pt-2 border-t border-border/50">
+            <div className="px-6 md:px-[60px] pb-8 pt-2 border-t border-zinc-800">
               <div className="flex flex-col gap-2 font-mono text-[13px]">
                 {!sandbox.logs?.length ? (
-                  <span className="text-muted-foreground">No logs.</span>
+                  <span className="text-zinc-500">No logs.</span>
                 ) : (
                   sandbox.logs.map((l, i) => (
-                    <div key={i} className="flex items-start gap-4 text-muted-foreground/80 hover:text-muted-foreground transition-colors py-0.5">
-                      <span className="text-muted-foreground/40 flex-shrink-0 w-[70px]">
+                    <div key={i} className="flex items-start gap-4 text-zinc-500 hover:text-zinc-400 transition-colors py-0.5">
+                      <span className="text-zinc-600 flex-shrink-0 w-[70px]">
                         {new Date(l.ts * 1000).toISOString().slice(11, 19)}
                       </span>
                       <span
                         className={`flex-shrink-0 w-[52px] ${
-                          l.type === "error" ? "text-destructive" : l.type === "llm" ? "text-accent" : "text-muted-foreground"
+                          l.type === "error" ? "text-red-400" : l.type === "llm" ? "text-cyan-400" : "text-zinc-500"
                         }`}
                       >
                         [{l.type}]
                       </span>
-                      <span className="text-foreground flex-1 break-all">{l.message}</span>
+                      <span className="text-zinc-50 flex-1 break-all">{l.message}</span>
                     </div>
                   ))
                 )}
@@ -252,7 +252,7 @@ export default function SandboxDetail({ params }: { params: { id: string } }) {
 
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors font-sans"
         >
           <ArrowLeft size={16} />
           Back to control panel
