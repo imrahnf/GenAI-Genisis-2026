@@ -43,24 +43,24 @@ export function SandboxesSection({
     return (
       <div className="card-dev px-6 py-16 text-center">
         <div className="flex justify-center mb-3">
-          <Server size={28} className="text-zinc-500" />
+          <Server size={28} className="text-muted-foreground" />
         </div>
-        <p className="text-zinc-400 text-[14px] font-medium">No sandboxes</p>
-        <p className="text-zinc-500 text-[13px] mt-1">Select a preset and launch from Presets.</p>
+        <p className="text-muted-foreground text-[14px] font-medium">No sandboxes</p>
+        <p className="text-muted-foreground/80 text-[13px] mt-1">Select a preset and launch from Presets.</p>
       </div>
     );
   }
 
   return (
     <div className="card-dev overflow-hidden">
-      <div className="flex items-center gap-4 px-5 py-3 border-b border-zinc-800 bg-zinc-900/60">
-        <span className="text-[11px] text-zinc-400 uppercase tracking-wider w-[100px] font-sans">Preset</span>
-        <span className="text-[11px] text-zinc-400 uppercase tracking-wider flex-1 min-w-0 font-sans">URL</span>
-        <span className="text-[11px] text-zinc-400 uppercase tracking-wider hidden md:block flex-1 min-w-0 truncate font-sans">Goal</span>
-        <span className="text-[11px] text-zinc-400 uppercase tracking-wider w-[100px] font-sans">Expires</span>
+      <div className="flex items-center gap-4 px-5 py-3 border-b border-[#363636] bg-secondary">
+        <span className="text-[11px] text-muted-foreground uppercase tracking-wider w-[100px] font-sans">Preset</span>
+        <span className="text-[11px] text-muted-foreground uppercase tracking-wider flex-1 min-w-0 font-sans">URL</span>
+        <span className="text-[11px] text-muted-foreground uppercase tracking-wider hidden md:block flex-1 min-w-0 truncate font-sans">Goal</span>
+        <span className="text-[11px] text-muted-foreground uppercase tracking-wider w-[100px] font-sans">Expires</span>
         <div className="w-[200px] flex-shrink-0 flex items-center justify-end gap-2">
-          <span className="flex items-center gap-1.5 text-[11px] text-cyan-400 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+          <span className="flex items-center gap-1.5 text-[11px] text-accent font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
             Live
           </span>
         </div>
@@ -73,12 +73,12 @@ export function SandboxesSection({
         return (
           <React.Fragment key={s.sandbox_id}>
             <div
-              className={`flex flex-wrap items-center gap-4 px-5 py-4 hover:bg-zinc-800/50 transition-colors ${
-                index !== sandboxes.length - 1 && !isLogsExpanded ? "border-b border-zinc-800" : ""
+              className={`flex flex-wrap items-center gap-4 px-5 py-4 hover:bg-secondary/80 transition-colors ${
+                index !== sandboxes.length - 1 && !isLogsExpanded ? "border-b border-[#363636]" : ""
               }`}
             >
               <div className="w-[100px] flex items-center gap-2 min-w-0">
-                <span className="text-[13px] text-zinc-50 font-medium truncate font-mono">{s.preset ?? "preset"}</span>
+                <span className="text-[13px] text-foreground font-medium truncate font-mono">{s.preset ?? "preset"}</span>
                 {s.template_id && (
                   <span className="rounded-full bg-amber-500/20 text-amber-400 px-1.5 py-0.5 text-[10px] border border-amber-500/30">
                     Replay
@@ -90,30 +90,30 @@ export function SandboxesSection({
                   href={s.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[12px] text-zinc-400 hover:text-zinc-50 truncate min-w-0 font-mono"
+                  className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground truncate min-w-0 font-mono"
                 >
                   {s.url}
                   <ExternalLink size={12} className="flex-shrink-0" />
                 </a>
                 <Link
                   href={`/sandbox/${s.sandbox_id}`}
-                  className="text-[11px] text-cyan-400 hover:text-cyan-300 flex-shrink-0 font-mono"
+                  className="text-[11px] text-accent hover:text-accent/90 flex-shrink-0 font-mono"
                 >
                   Details
                 </Link>
               </div>
-              <p className="hidden md:block flex-1 min-w-0 truncate text-[12px] text-zinc-400" title={s.goal}>
+              <p className="hidden md:block flex-1 min-w-0 truncate text-[12px] text-muted-foreground" title={s.goal}>
                 {s.goal}
               </p>
               <div className="w-[100px] flex items-center gap-1.5 flex-shrink-0">
                 {isExpired ? (
-                  <AlertCircle size={13} className="text-red-400 flex-shrink-0" />
+                  <AlertCircle size={13} className="text-destructive flex-shrink-0" />
                 ) : (
-                  <CheckCircle size={13} className="text-cyan-400 flex-shrink-0" />
+                  <CheckCircle size={13} className="text-accent flex-shrink-0" />
                 )}
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-mono ${
-                    isExpired ? "bg-red-500/20 text-red-400" : "bg-zinc-800 text-zinc-400"
+                    isExpired ? "bg-destructive/20 text-destructive" : "bg-secondary text-muted-foreground"
                   }`}
                 >
                   {isExpired ? "Expired" : formatExpires(s.expires_at)}
@@ -129,7 +129,7 @@ export function SandboxesSection({
                 </button>
                 {isCapturing ? (
                   <>
-                    <span className="text-[10px] text-zinc-400 font-mono">Recording ({s.capture_steps_count ?? 0})</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">Recording ({s.capture_steps_count ?? 0})</span>
                     <button
                       type="button"
                       onClick={() => onCaptureSaveName({ id: s.sandbox_id, name: "" })}
@@ -168,7 +168,7 @@ export function SandboxesSection({
                   <button
                     type="button"
                     onClick={() => onCaptureStart(s.sandbox_id)}
-                    className="btn-ghost inline-flex items-center gap-1 rounded-lg bg-cyan-500/20 px-3 py-2 text-xs text-cyan-400 hover:bg-cyan-500/30"
+                    className="btn-ghost inline-flex items-center gap-1 rounded-lg bg-accent/20 px-3 py-2 text-xs text-accent hover:bg-accent/30"
                   >
                     <Video size={14} />
                     Capture
@@ -185,32 +185,32 @@ export function SandboxesSection({
               </div>
             </div>
             {isLogsExpanded && (
-              <div className="border-t border-zinc-800 bg-zinc-900/60 px-5 py-3">
+              <div className="border-t border-[#363636] bg-secondary px-5 py-3">
                 <div className="mb-2 flex items-center gap-2">
-                  <FileText size={14} className="text-zinc-500" />
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400 font-sans">Agent logs</span>
+                  <FileText size={14} className="text-muted-foreground" />
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground font-sans">Agent logs</span>
                   {s.logs && s.logs.length > 0 && (
-                    <span className="flex items-center gap-1.5 text-[11px] text-cyan-400 ml-auto font-mono">
-                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                    <span className="flex items-center gap-1.5 text-[11px] text-accent ml-auto font-mono">
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
                       Live
                     </span>
                   )}
                 </div>
                 {!s.logs?.length ? (
-                  <p className="text-zinc-500 text-sm font-mono">No logs.</p>
+                  <p className="text-muted-foreground text-sm font-mono">No logs.</p>
                 ) : (
                   <div className="max-h-56 overflow-auto space-y-1 font-mono text-[11px]">
                     {s.logs.map((l, i) => (
-                      <div key={i} className="flex items-start gap-3 text-zinc-500 hover:text-zinc-400 transition-colors py-0.5">
-                        <span className="text-zinc-600 flex-shrink-0 w-[70px]">{new Date(l.ts * 1000).toISOString().slice(11, 19)}</span>
+                      <div key={i} className="flex items-start gap-3 text-muted-foreground hover:text-foreground transition-colors py-0.5">
+                        <span className="text-muted-foreground/80 flex-shrink-0 w-[70px]">{new Date(l.ts * 1000).toISOString().slice(11, 19)}</span>
                         <span
                           className={`flex-shrink-0 w-[52px] ${
-                            l.type === "error" ? "text-red-400" : l.type === "llm" ? "text-cyan-400" : "text-zinc-500"
+                            l.type === "error" ? "text-destructive" : l.type === "llm" ? "text-accent" : "text-muted-foreground"
                           }`}
                         >
                           [{l.type}]
                         </span>
-                        <span className="text-zinc-50 flex-1 break-all">{l.message}</span>
+                        <span className="text-foreground flex-1 break-all">{l.message}</span>
                       </div>
                     ))}
                   </div>

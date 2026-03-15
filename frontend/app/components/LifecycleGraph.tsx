@@ -67,14 +67,14 @@ function LifecycleNode({
         : nodeType === "capture_start" || nodeType === "capture_stop"
           ? "bg-rose-500 border border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.4)]"
           : isActive
-            ? "bg-cyan-500 border border-cyan-400 shadow-[0_0_14px_rgba(34,211,238,0.5)] active-pulse"
-            : "bg-cyan-600/90 border border-cyan-500/80 shadow-[0_0_10px_rgba(34,211,238,0.3)]";
+            ? "bg-[#3c9c66] border border-[#4caf50] shadow-[0_0_14px_rgba(60,156,102,0.5)] active-pulse"
+            : "bg-[#3c9c66]/90 border border-[#3c9c66] shadow-[0_0_10px_rgba(60,156,102,0.3)]";
 
   return (
     <div className="group flex flex-col items-center gap-0.5">
       <Handle type="target" position={Position.Left} className="!w-2 !h-2 !border-2 !border-zinc-500 !bg-zinc-200" />
       <Handle type="source" position={Position.Right} className="!w-2 !h-2 !border-2 !border-zinc-500 !bg-zinc-200" />
-      <span className="text-[10px] font-medium text-zinc-400 whitespace-nowrap max-w-[72px] truncate font-mono" title={tag}>
+      <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap max-w-[72px] truncate font-mono" title={tag}>
         {tag}
       </span>
       <div
@@ -235,7 +235,7 @@ function LifecycleGraphInner({
   }, [events, activeSandboxIds, setNodes, setEdges]);
 
   return (
-    <div className="lifecycle-graph h-[420px] w-full rounded-xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-xl">
+    <div className="lifecycle-graph h-[420px] w-full rounded-xl border border-[#363636] bg-card">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -253,7 +253,7 @@ function LifecycleGraphInner({
         <Background gap={12} size={1} color="#27272a" />
         <Controls showInteractive={false} />
         <MiniMap nodeColor={(n) => (n.data?.nodeType === "destroy" ? "#a8a29e" : n.data?.nodeType === "replay" ? "#0ea5e9" : n.data?.nodeType === "capture_start" || n.data?.nodeType === "capture_stop" ? "#e11d48" : "#059669")} />
-        <Panel position="top-left" className="text-xs font-medium text-zinc-400 font-sans">
+        <Panel position="top-left" className="text-xs font-medium text-muted-foreground font-sans">
           Lifecycle · {events.length} events
         </Panel>
       </ReactFlow>

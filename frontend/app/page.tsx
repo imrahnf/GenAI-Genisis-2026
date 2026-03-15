@@ -315,8 +315,8 @@ export default function Home() {
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="flex-shrink-0 px-8 pt-7 pb-4 border-b border-zinc-800">
-          <p className="text-[13px] text-zinc-400 mb-1 font-sans">Overview</p>
+        <div className="flex-shrink-0 px-8 pt-7 pb-4 border-b border-[#363636]">
+          <p className="text-[13px] text-muted-foreground mb-1 font-sans">Overview</p>
 
           {activeSection === "presets" && selectedPreset ? (
             <div className="flex items-center justify-between mb-4">
@@ -324,17 +324,17 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setSelectedPreset(null)}
-                  className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors -ml-2"
+                  className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors -ml-2"
                 >
                   <ArrowLeft size={18} />
                 </button>
-                <h1 className="text-zinc-50 m-0 font-sans text-[28px] tracking-tight">
+                <h1 className="text-foreground m-0 font-sans text-[28px] tracking-tight">
                   Launch sandbox · {selectedPresetData?.name ?? selectedPreset}
                 </h1>
               </div>
             </div>
           ) : (
-            <h1 className="text-zinc-50 mb-4 font-sans text-[28px] tracking-tight">
+            <h1 className="text-foreground mb-4 font-sans text-[28px] tracking-tight">
               {sectionTitles[activeSection]}
             </h1>
           )}
@@ -365,7 +365,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="mb-4 flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+                className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
               >
                 <AlertCircle size={18} className="flex-shrink-0" />
                 {error}
@@ -377,7 +377,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="mb-4 flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-400"
+                className="mb-4 flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent"
               >
                 <CheckCircle size={18} className="flex-shrink-0" />
                 {successMessage}
