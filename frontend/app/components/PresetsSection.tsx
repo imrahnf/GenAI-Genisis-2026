@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { Search, X, FolderOpen } from "lucide-react";
 import type { Preset } from "../types";
 
@@ -50,6 +51,7 @@ export function PresetsSection({
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         {filtered.map((p) => {
           const isSelected = selectedPreset === p.id;
+          const isSpending = p.id === "spending" || p.name.includes("Spending & Anomaly");
           return (
             <button
               key={p.id}
@@ -59,7 +61,18 @@ export function PresetsSection({
                 isSelected ? "border-accent/50 ring-1 ring-accent/20" : "hover:border-[#404040]"
               }`}
             >
-              <div className="h-[100px] overflow-hidden bg-secondary/80 relative transition-all duration-300 group-hover:opacity-90" />
+              {isSpending ? (
+                <div className="h-[100px] overflow-hidden relative">
+                  <Image
+                    src="/opengraph-image.png"
+                    alt={p.name}
+                    fill
+                    className="object-cover opacity-85"
+                  />
+                </div>
+              ) : (
+                <div className="h-[100px] overflow-hidden bg-secondary/80 relative transition-all duration-300 group-hover:opacity-90" />
+              )}
               <div className="px-5 py-4 flex flex-col gap-2">
                 <p className="text-[15px] text-foreground font-medium font-sans tracking-tight">{p.name}</p>
                 <div className="flex flex-wrap gap-1.5">
