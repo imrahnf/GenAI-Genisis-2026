@@ -181,6 +181,7 @@ def index():
         msg.textContent = 'Request failed.';
       }
     };
+    setInterval(function () { location.reload(); }, 4000);
   </script>
 </body>
 </html>

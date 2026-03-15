@@ -19,6 +19,15 @@ app = Flask(__name__)
 DB_PATH = Path("/data/bank.db")
 
 
+@app.template_filter("printf")
+def _printf(s, value):
+    """Jinja filter: '%.2f'|printf(balance) for number formatting."""
+    try:
+        return s % value
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def get_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
@@ -55,55 +64,117 @@ def index():
     return render_template_string(
         """
 <!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>{{ title }}</title>
-<style>
-  body { font-family: system-ui; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
-  h1 { font-size: 1.5rem; }
-  table { width: 100%%; border-collapse: collapse; margin: 1rem 0; }
-  th, td { text-align: left; padding: 0.4rem; border-bottom: 1px solid #eee; }
-  form { margin: 0.5rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-  input[type=text], input[type=number] { padding: 0.35rem 0.5rem; font: inherit; }
-  button { padding: 0.4rem 0.8rem; font: inherit; cursor: pointer; background: #333; color: #fff; border: none; border-radius: 4px; }
-  button:hover { background: #111; }
-  .muted { color: #666; font-size: 0.85rem; }
-</style>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'] } } } };
+  </script>
 </head>
-<body>
-  <h1>{{ title }}</h1>
-  <h2>Accounts</h2>
-  <form id="create-account-form">
-    <strong>New account:</strong>
-    <input type="text" id="acct-name" placeholder="Name" required />
-    <input type="number" id="acct-balance" placeholder="Initial balance" step="0.01" />
-    <button type="submit">Create</button>
-    <span class="muted" id="acct-msg"></span>
-  </form>
-  <table>
-    <tr><th>ID</th><th>Name</th><th>Balance {{ currency }}</th></tr>
-    {% for a in accounts %}
-    <tr><td>{{ a.id }}</td><td>{{ a.name }}</td><td>{{ a.balance }}</td></tr>
-    {% else %}
-    <tr><td colspan="3">No accounts yet.</td></tr>
-    {% endfor %}
-  </table>
-  <h2>Recent Transactions</h2>
-  <form id="transfer-form">
-    <strong>Transfer:</strong>
-    <input type="number" id="from-id" placeholder="From ID" />
-    <input type="number" id="to-id" placeholder="To ID" />
-    <input type="number" id="amount" placeholder="Amount" step="0.01" />
-    <button type="submit">Send</button>
-    <span class="muted" id="tx-msg"></span>
-  </form>
-  <table>
-    <tr><th>From</th><th>To</th><th>Amount</th><th>Time</th></tr>
-    {% for t in txns %}
-    <tr><td>{{ t.from }}</td><td>{{ t.to }}</td><td>{{ t.amount }}</td><td>{{ t.created_at }}</td></tr>
-    {% else %}
-    <tr><td colspan="4">No transactions yet.</td></tr>
-    {% endfor %}
-  </table>
+<body class="bg-stone-50 font-sans text-stone-900 antialiased min-h-screen">
+  <div class="max-w-2xl mx-auto px-4 py-8">
+    <h1 class="text-xl font-semibold tracking-tight text-stone-900 mb-6">{{ title }}</h1>
+
+    <div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm mb-6">
+      <h2 class="text-sm font-semibold text-stone-900 mb-3">New account</h2>
+      <form id="create-account-form" class="flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[120px]">
+          <label for="acct-name" class="block text-xs font-medium text-stone-500 mb-1">Name</label>
+          <input type="text" id="acct-name" placeholder="Account name" required class="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-stone-900/10 focus:outline-none" />
+        </div>
+        <div class="min-w-[100px]">
+          <label for="acct-balance" class="block text-xs font-medium text-stone-500 mb-1">Initial balance</label>
+          <input type="number" id="acct-balance" placeholder="0" step="0.01" class="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-stone-900/10 focus:outline-none" />
+        </div>
+        <button type="submit" class="rounded-full bg-stone-900 text-white text-sm font-medium px-4 py-2 shadow-sm hover:bg-stone-800 active:scale-[0.98] transition">Create</button>
+        <span id="acct-msg" class="text-xs text-stone-500 self-center"></span>
+      </form>
+    </div>
+
+    <div class="rounded-2xl border border-stone-200 bg-white shadow-sm overflow-hidden mb-6">
+      <div class="px-5 py-4 border-b border-stone-100">
+        <h2 class="text-sm font-semibold text-stone-900">Accounts</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-stone-100">
+              <th class="text-left py-3 px-4 font-medium text-stone-500">ID</th>
+              <th class="text-left py-3 px-4 font-medium text-stone-500">Name</th>
+              <th class="text-right py-3 px-4 font-medium text-stone-500">Balance {{ currency }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in accounts %}
+            <tr class="border-b border-stone-100">
+              <td class="py-3 px-4 text-stone-600">{{ a.id }}</td>
+              <td class="py-3 px-4 text-stone-900">{{ a.name }}</td>
+              <td class="py-3 px-4 text-right font-medium text-stone-900">{{ "%.2f"|printf(a.balance) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="py-8 px-4 text-center text-stone-500">No accounts yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm mb-6">
+      <h2 class="text-sm font-semibold text-stone-900 mb-3">Transfer</h2>
+      <form id="transfer-form" class="flex flex-wrap gap-3 items-end">
+        <div class="min-w-[70px]">
+          <label for="from-id" class="block text-xs font-medium text-stone-500 mb-1">From ID</label>
+          <input type="number" id="from-id" placeholder="From" min="1" class="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-stone-900/10 focus:outline-none" />
+        </div>
+        <div class="min-w-[70px]">
+          <label for="to-id" class="block text-xs font-medium text-stone-500 mb-1">To ID</label>
+          <input type="number" id="to-id" placeholder="To" min="1" class="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-stone-900/10 focus:outline-none" />
+        </div>
+        <div class="min-w-[90px]">
+          <label for="amount" class="block text-xs font-medium text-stone-500 mb-1">Amount</label>
+          <input type="number" id="amount" placeholder="0" step="0.01" min="0.01" class="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-stone-900/10 focus:outline-none" />
+        </div>
+        <button type="submit" class="rounded-full bg-stone-900 text-white text-sm font-medium px-4 py-2 shadow-sm hover:bg-stone-800 active:scale-[0.98] transition">Send</button>
+        <span id="tx-msg" class="text-xs text-stone-500 self-center"></span>
+      </form>
+    </div>
+
+    <div class="rounded-2xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-stone-100">
+        <h2 class="text-sm font-semibold text-stone-900">Recent Transactions</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-stone-100">
+              <th class="text-left py-3 px-4 font-medium text-stone-500">From</th>
+              <th class="text-left py-3 px-4 font-medium text-stone-500">To</th>
+              <th class="text-right py-3 px-4 font-medium text-stone-500">Amount</th>
+              <th class="text-left py-3 px-4 font-medium text-stone-500">Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in txns %}
+            <tr class="border-b border-stone-100">
+              <td class="py-3 px-4 text-stone-900">{{ t.from or '—' }}</td>
+              <td class="py-3 px-4 text-stone-900">{{ t.to or '—' }}</td>
+              <td class="py-3 px-4 text-right font-medium text-stone-900">{{ "%.2f"|printf(t.amount) }}</td>
+              <td class="py-3 px-4 text-stone-600">{{ t.created_at }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="py-8 px-4 text-center text-stone-500">No transactions yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
   <script>
     document.getElementById('create-account-form').onsubmit = async function (e) {
       e.preventDefault();
@@ -146,6 +217,7 @@ def index():
         msg.textContent = 'Error transferring.';
       }
     };
+    setInterval(function () { location.reload(); }, 4000);
   </script>
 </body>
 </html>

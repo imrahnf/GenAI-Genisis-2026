@@ -39,31 +39,51 @@ def index():
     return render_template_string(
         """
 <!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>{{ title }}</title>
-<style>
-  body { font-family: system-ui; max-width: 480px; margin: 2rem auto; padding: 0 1rem; }
-  h1 { font-size: 1.5rem; }
-  ul { list-style: none; padding: 0; }
-  li { padding: 0.4rem 0; border-bottom: 1px solid #eee; }
-  form { display: flex; gap: 0.5rem; margin-top: 1rem; }
-  input[type=text] { flex: 1; padding: 0.5rem; }
-  button { padding: 0.5rem 1rem; background: #333; color: #fff; border: none; cursor: pointer; }
-</style>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'] } } } };
+  </script>
 </head>
-<body>
-  <h1>{{ title }}</h1>
-  <ul id="food-list">
-    {% for f in foods %}
-    <li>{{ f.name }} <small>{{ f.created_at }}</small></li>
-    {% else %}
-    <li id="empty-msg"><em>No foods yet. Add one or let the agent add some.</em></li>
-    {% endfor %}
-  </ul>
-  <form id="add-form">
-    <input type="text" name="food" id="food-input" placeholder="Food name" required />
-    <button type="submit">Add</button>
-  </form>
+<body class="bg-stone-50 font-sans text-stone-900 antialiased min-h-screen">
+  <div class="max-w-2xl mx-auto px-4 py-8">
+    <h1 class="text-xl font-semibold tracking-tight text-stone-900 mb-6">{{ title }}</h1>
+
+    <div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm mb-6">
+      <h2 class="text-sm font-semibold text-stone-900 mb-3">Add food</h2>
+      <form id="add-form" class="flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[140px]">
+          <label for="food-input" class="block text-xs font-medium text-stone-500 mb-1">Food name</label>
+          <input type="text" name="food" id="food-input" placeholder="e.g. Pizza" required class="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-stone-900/10 focus:outline-none" />
+        </div>
+        <button type="submit" class="rounded-full bg-stone-900 text-white text-sm font-medium px-4 py-2 shadow-sm hover:bg-stone-800 active:scale-[0.98] transition">Add</button>
+        <span id="add-msg" class="text-xs text-stone-500 self-center"></span>
+      </form>
+    </div>
+
+    <div class="rounded-2xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-stone-100">
+        <h2 class="text-sm font-semibold text-stone-900">Foods</h2>
+      </div>
+      <ul id="food-list" class="divide-y divide-stone-100">
+        {% for f in foods %}
+        <li class="py-3 px-5 text-sm text-stone-900 flex justify-between items-center">
+          <span>{{ f.name }}</span>
+          <span class="text-xs text-stone-500">{{ f.created_at }}</span>
+        </li>
+        {% else %}
+        <li id="empty-msg" class="py-8 px-5 text-center text-stone-500 text-sm">No foods yet. Add one or let the agent add some.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
   <script>
     document.getElementById('add-form').onsubmit = async function(e) {
       e.preventDefault();
@@ -84,10 +104,8 @@ def index():
           if (empty) empty.remove();
           var ul = document.getElementById('food-list');
           var li = document.createElement('li');
-          li.textContent = name + ' ';
-          var small = document.createElement('small');
-          small.textContent = new Date().toLocaleString();
-          li.appendChild(small);
+          li.className = 'py-3 px-5 text-sm text-stone-900 flex justify-between items-center';
+          li.innerHTML = '<span>' + name + '</span><span class="text-xs text-stone-500">' + new Date().toLocaleString() + '</span>';
           ul.insertBefore(li, ul.firstChild);
           input.value = '';
         }
@@ -95,6 +113,7 @@ def index():
         if (btn) btn.disabled = false;
       }
     };
+    setInterval(function () { location.reload(); }, 4000);
   </script>
 </body>
 </html>
