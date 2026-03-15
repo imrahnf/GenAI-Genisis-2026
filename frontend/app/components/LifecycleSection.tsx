@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { GitBranch } from "lucide-react";
 import LifecycleGraph, { type LifecycleEvent } from "./LifecycleGraph";
 
 interface LifecycleSectionProps {
@@ -11,8 +12,12 @@ interface LifecycleSectionProps {
 export function LifecycleSection({ events, activeSandboxIds }: LifecycleSectionProps) {
   if (events.length === 0) {
     return (
-      <div className="rounded-2xl border border-border bg-card px-6 py-12 text-center text-muted-foreground text-[14px]">
-        No events yet. Launch a sandbox to see the lifecycle graph.
+      <div className="rounded-2xl border border-border bg-card px-6 py-16 text-center">
+        <div className="flex justify-center mb-3">
+          <GitBranch size={28} className="text-muted-foreground/60" />
+        </div>
+        <p className="text-muted-foreground text-[14px] font-medium">No events yet</p>
+        <p className="text-muted-foreground/80 text-[13px] mt-1">Launch a sandbox to see the lifecycle graph.</p>
       </div>
     );
   }

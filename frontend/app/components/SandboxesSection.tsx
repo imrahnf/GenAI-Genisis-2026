@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { ExternalLink, Video, RotateCcw, Trash2 } from "lucide-react";
+import { ExternalLink, Video, RotateCcw, Trash2, CheckCircle, AlertCircle, FileText, Server } from "lucide-react";
 import type { Sandbox } from "../types";
 
 function formatExpires(expiresAt: number | string | null | undefined): string {
@@ -41,8 +41,12 @@ export function SandboxesSection({
 }: SandboxesSectionProps) {
   if (sandboxes.length === 0) {
     return (
-      <div className="rounded-2xl border border-border bg-card px-6 py-12 text-center text-muted-foreground text-[14px]">
-        No sandboxes. Select a preset and launch from Presets.
+      <div className="rounded-2xl border border-border bg-card px-6 py-16 text-center">
+        <div className="flex justify-center mb-3">
+          <Server size={28} className="text-muted-foreground/60" />
+        </div>
+        <p className="text-muted-foreground text-[14px] font-medium">No sandboxes</p>
+        <p className="text-muted-foreground/80 text-[13px] mt-1">Select a preset and launch from Presets.</p>
       </div>
     );
   }
@@ -54,7 +58,12 @@ export function SandboxesSection({
         <span className="text-[11px] text-muted-foreground uppercase tracking-wider flex-1 min-w-0">URL</span>
         <span className="text-[11px] text-muted-foreground uppercase tracking-wider hidden md:block flex-1 min-w-0 truncate">Goal</span>
         <span className="text-[11px] text-muted-foreground uppercase tracking-wider w-[100px]">Expires</span>
-        <div className="w-[200px] flex-shrink-0" />
+        <div className="w-[200px] flex-shrink-0 flex items-center justify-end gap-2">
+          <span className="flex items-center gap-1.5 text-[11px] text-accent">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+            Live
+          </span>
+        </div>
       </div>
       {sandboxes.map((s, index) => {
         const isExpired = formatExpires(s.expires_at) === "expired";
@@ -96,13 +105,20 @@ export function SandboxesSection({
               <p className="hidden md:block flex-1 min-w-0 truncate text-[12px] text-muted-foreground" title={s.goal}>
                 {s.goal}
               </p>
-              <span
-                className={`w-[100px] rounded-full px-2 py-0.5 text-[10px] flex-shrink-0 ${
-                  isExpired ? "bg-destructive/20 text-destructive" : "bg-secondary text-muted-foreground"
-                }`}
-              >
-                {isExpired ? "Expired" : formatExpires(s.expires_at)}
-              </span>
+              <div className="w-[100px] flex items-center gap-1.5 flex-shrink-0">
+                {isExpired ? (
+                  <AlertCircle size={13} className="text-destructive flex-shrink-0" />
+                ) : (
+                  <CheckCircle size={13} className="text-accent flex-shrink-0" />
+                )}
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] ${
+                    isExpired ? "bg-destructive/20 text-destructive" : "bg-secondary text-muted-foreground"
+                  }`}
+                >
+                  {isExpired ? "Expired" : formatExpires(s.expires_at)}
+                </span>
+              </div>
               <div className="w-full md:w-auto flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -170,10 +186,35 @@ export function SandboxesSection({
             </div>
             {isLogsExpanded && (
               <div className="border-t border-border bg-secondary/20 px-5 py-3">
-                <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Agent logs</p>
-                <pre className="max-h-56 overflow-auto rounded-xl bg-background px-3 py-2 font-mono text-[11px] text-foreground whitespace-pre-wrap break-all">
-                  {!s.logs?.length ? "No logs." : s.logs.map((l) => `${new Date(l.ts * 1000).toISOString().slice(11, 19)} [${l.type}] ${l.message}`).join("\n")}
-                </pre>
+                <div className="mb-2 flex items-center gap-2">
+                  <FileText size={14} className="text-muted-foreground" />
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Agent logs</span>
+                  {s.logs && s.logs.length > 0 && (
+                    <span className="flex items-center gap-1.5 text-[11px] text-accent ml-auto">
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                      Live
+                    </span>
+                  )}
+                </div>
+                {!s.logs?.length ? (
+                  <p className="text-muted-foreground text-sm">No logs.</p>
+                ) : (
+                  <div className="max-h-56 overflow-auto space-y-1 font-mono text-[11px]">
+                    {s.logs.map((l, i) => (
+                      <div key={i} className="flex items-start gap-3 text-muted-foreground/80 hover:text-muted-foreground transition-colors py-0.5">
+                        <span className="text-muted-foreground/40 flex-shrink-0 w-[70px]">{new Date(l.ts * 1000).toISOString().slice(11, 19)}</span>
+                        <span
+                          className={`flex-shrink-0 w-[52px] ${
+                            l.type === "error" ? "text-destructive" : l.type === "llm" ? "text-accent" : "text-muted-foreground"
+                          }`}
+                        >
+                          [{l.type}]
+                        </span>
+                        <span className="text-foreground flex-1 break-all">{l.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </React.Fragment>

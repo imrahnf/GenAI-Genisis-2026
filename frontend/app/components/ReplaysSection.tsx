@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Play } from "lucide-react";
+import { Play, Film } from "lucide-react";
 import type { Template } from "../types";
 
 interface ReplaysSectionProps {
@@ -14,8 +14,14 @@ export function ReplaysSection({ templates, onLaunchReplay, loading }: ReplaysSe
   if (templates.length === 0) {
     return (
       <div className="border border-border rounded-2xl bg-card overflow-hidden">
-        <div className="px-6 py-12 text-center text-muted-foreground text-[14px]">
-          No templates yet. Start a sandbox, click Capture, then Stop & save.
+        <div className="px-6 py-16 text-center">
+          <div className="flex justify-center mb-3">
+            <Film size={28} className="text-muted-foreground/60" />
+          </div>
+          <p className="text-muted-foreground text-[14px] font-medium">No templates yet</p>
+          <p className="text-muted-foreground/80 text-[13px] mt-1">
+            Launch a sandbox from Presets, then use Capture to record a walkthrough.
+          </p>
         </div>
       </div>
     );

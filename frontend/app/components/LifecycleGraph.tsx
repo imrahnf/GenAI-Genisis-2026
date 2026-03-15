@@ -71,14 +71,14 @@ function LifecycleNode({
             : "bg-emerald-400 border-2 border-emerald-500 shadow-md";
 
   return (
-    <div className="flex flex-col items-center gap-0.5">
+    <div className="group flex flex-col items-center gap-0.5">
       <Handle type="target" position={Position.Left} className="!w-2 !h-2 !border-2 !border-stone-400 !bg-white" />
       <Handle type="source" position={Position.Right} className="!w-2 !h-2 !border-2 !border-stone-400 !bg-white" />
       <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap max-w-[72px] truncate" title={tag}>
         {tag}
       </span>
       <div
-        className={`flex items-center justify-center rounded-full w-9 h-9 shrink-0 ${ballClass} text-white font-bold`}
+        className={`flex items-center justify-center rounded-full w-9 h-9 shrink-0 transition-transform group-hover:scale-105 ${ballClass} text-white font-bold`}
         title={tag}
       >
         {nodeType === "destroy" ? "×" : null}

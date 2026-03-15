@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { ArrowLeft } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
 import { Sidebar, type Section } from "./components/Sidebar";
 import { PresetsSection } from "./components/PresetsSection";
 import { LaunchSandboxForm } from "./components/LaunchSandboxForm";
@@ -357,12 +358,32 @@ export default function Home() {
             </div>
           )}
 
-          {error && (
-            <div className="mb-4 rounded-xl bg-destructive/15 px-4 py-3 text-sm text-destructive">{error}</div>
-          )}
-          {successMessage && (
-            <div className="mb-4 rounded-xl bg-accent/15 px-4 py-3 text-sm text-accent">{successMessage}</div>
-          )}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                key="error"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mb-4 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/15 px-4 py-3 text-sm text-destructive"
+              >
+                <AlertCircle size={18} className="flex-shrink-0" />
+                {error}
+              </motion.div>
+            )}
+            {successMessage && !error && (
+              <motion.div
+                key="success"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mb-4 flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/15 px-4 py-3 text-sm text-accent"
+              >
+                <CheckCircle size={18} className="flex-shrink-0" />
+                {successMessage}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="flex-1 overflow-y-auto px-8 pb-8">

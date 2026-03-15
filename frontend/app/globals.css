@@ -58,39 +58,55 @@
     color: var(--muted-foreground);
   }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl text-sm font-medium px-5 py-2.5 transition;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl text-sm font-medium px-5 py-2.5 transition active:scale-[0.98];
     background-color: var(--accent);
     color: var(--accent-foreground);
   }
   .btn-primary:hover {
     background-color: #4a8a6c;
   }
+  .btn-primary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgba(58, 122, 92, 0.5);
+  }
   .btn-primary:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl text-sm font-medium px-5 py-2.5 transition;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl text-sm font-medium px-5 py-2.5 transition active:scale-[0.98];
     background-color: var(--secondary);
     color: var(--secondary-foreground);
   }
   .btn-secondary:hover {
     filter: brightness(1.1);
   }
+  .btn-secondary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgba(58, 122, 92, 0.5);
+  }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition active:scale-[0.98];
     color: var(--muted-foreground);
   }
   .btn-ghost:hover {
     color: var(--foreground);
     background-color: rgba(46, 46, 46, 0.5);
   }
+  .btn-ghost:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgba(58, 122, 92, 0.5);
+  }
   .btn-destroy {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition active:scale-[0.98];
     color: var(--destructive);
   }
   .btn-destroy:hover {
     background-color: rgba(229, 72, 77, 0.15);
+  }
+  .btn-destroy:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgba(229, 72, 77, 0.5);
   }
 
   /* Lifecycle graph: ensure edge lines are visible */

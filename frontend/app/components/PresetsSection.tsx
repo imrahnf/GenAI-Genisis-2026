@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Search, X, FolderOpen } from "lucide-react";
 import type { Preset } from "../types";
 
 interface PresetsSectionProps {
@@ -26,13 +27,24 @@ export function PresetsSection({
     <div className="flex flex-col gap-6">
       {onSearchChange && (
         <div className="flex items-center gap-3 px-4 py-3 bg-card border border-border rounded-2xl text-muted-foreground focus-within:border-accent/50 transition-colors max-w-md">
+          <Search size={15} className="flex-shrink-0 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search presets"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground outline-none"
+            className="flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground outline-none min-w-0"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => onSearchChange("")}
+              className="flex-shrink-0 p-1 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
       )}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
@@ -43,11 +55,11 @@ export function PresetsSection({
               key={p.id}
               type="button"
               onClick={() => onSelectPreset(isSelected ? null : p.id)}
-              className={`rounded-2xl overflow-hidden border bg-card text-left transition-all cursor-pointer group ${
+              className={`rounded-2xl overflow-hidden border bg-card text-left transition-all duration-300 cursor-pointer group hover:translateY(-2px) ${
                 isSelected ? "border-accent/40 ring-1 ring-accent/20" : "border-border hover:border-accent/40"
               }`}
             >
-              <div className="h-[100px] overflow-hidden bg-secondary/50 relative" />
+              <div className="h-[100px] overflow-hidden bg-secondary/50 relative transition-all duration-300 group-hover:opacity-90" />
               <div className="px-5 py-4 flex flex-col gap-2">
                 <p className="text-[15px] text-foreground font-medium">{p.name}</p>
                 <div className="flex flex-wrap gap-1.5">
@@ -67,8 +79,16 @@ export function PresetsSection({
         })}
       </div>
       {filtered.length === 0 && (
-        <div className="py-16 text-center text-muted-foreground text-[14px]">
-          {searchQuery ? `No presets match "${searchQuery}"` : "No presets loaded."}
+        <div className="py-16 text-center">
+          <div className="flex justify-center mb-3">
+            <FolderOpen size={28} className="text-muted-foreground/60" />
+          </div>
+          <p className="text-muted-foreground text-[14px] font-medium">
+            {searchQuery ? `No presets match "${searchQuery}"` : "No presets loaded."}
+          </p>
+          {!searchQuery && (
+            <p className="text-muted-foreground/80 text-[13px] mt-1">Check the backend is running.</p>
+          )}
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronDown, ChevronRight, Play } from "lucide-react";
+import { ChevronDown, ChevronRight, Play, Settings, Bot, Loader2 } from "lucide-react";
 import type { Preset } from "../types";
 
 interface LaunchSandboxFormProps {
@@ -70,6 +70,7 @@ export function LaunchSandboxForm({
             onClick={() => setSettingsOpen(!settingsOpen)}
             className="w-full flex items-center gap-4 px-5 py-6 hover:bg-secondary/40 transition-colors"
           >
+            <Settings size={20} className="text-muted-foreground flex-shrink-0" />
             <span className="text-[18px] font-normal text-foreground">Deployment Settings</span>
             <div className="ml-auto">
               {settingsOpen ? <ChevronDown size={20} className="text-muted-foreground" /> : <ChevronRight size={20} className="text-muted-foreground" />}
@@ -151,6 +152,7 @@ export function LaunchSandboxForm({
             onClick={() => setAgentOpen(!agentOpen)}
             className="w-full flex items-center gap-4 px-5 py-6 hover:bg-secondary/40 transition-colors"
           >
+            <Bot size={20} className="text-muted-foreground flex-shrink-0" />
             <span className="text-[18px] font-normal text-foreground">Agent Settings</span>
             <div className="ml-auto">
               {agentOpen ? <ChevronDown size={20} className="text-muted-foreground" /> : <ChevronRight size={20} className="text-muted-foreground" />}
@@ -200,7 +202,7 @@ export function LaunchSandboxForm({
             </select>
           </div>
           <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2">
-            <Play className="h-4 w-4" />
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {loading ? "Launching…" : "Launch sandbox"}
           </button>
         </div>

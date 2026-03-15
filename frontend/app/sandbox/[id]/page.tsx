@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Video, RotateCcw, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, Video, RotateCcw, Trash2, ChevronDown, ChevronRight, FileText } from "lucide-react";
 import type { Sandbox } from "../../types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
@@ -207,27 +207,40 @@ export default function SandboxDetail({ params }: { params: { id: string } }) {
 
         <div className="h-px bg-border w-full" />
 
-        <div className="border border-border rounded-2xl bg-card overflow-hidden">
+        <div className="border border-border rounded-[16px] bg-[#242424] overflow-hidden">
           <button
             type="button"
             onClick={() => setLogsOpen(!logsOpen)}
-            className="w-full flex items-center gap-4 px-5 py-6 hover:bg-secondary/20 transition-colors"
+            className="w-full flex items-center gap-4 px-6 py-6 hover:bg-secondary/20 transition-colors"
           >
             {logsOpen ? <ChevronDown size={20} className="text-muted-foreground" /> : <ChevronRight size={20} className="text-muted-foreground" />}
+            <FileText size={18} className="text-muted-foreground flex-shrink-0" />
             <span className="text-[20px] font-normal text-foreground">Agent Logs</span>
+            {sandbox.logs && sandbox.logs.length > 0 && (
+              <span className="flex items-center gap-1.5 text-[11px] text-accent ml-auto">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                Live
+              </span>
+            )}
           </button>
           {logsOpen && (
-            <div className="px-6 pb-8 pt-2 border-t border-border/50">
+            <div className="px-[60px] pb-8 pt-2 border-t border-border/50">
               <div className="flex flex-col gap-2 font-mono text-[13px]">
                 {!sandbox.logs?.length ? (
                   <span className="text-muted-foreground">No logs.</span>
                 ) : (
                   sandbox.logs.map((l, i) => (
-                    <div key={i} className="flex items-start gap-4">
-                      <span className="text-muted-foreground/70 flex-shrink-0 w-[80px]">
+                    <div key={i} className="flex items-start gap-4 text-muted-foreground/80 hover:text-muted-foreground transition-colors py-0.5">
+                      <span className="text-muted-foreground/40 flex-shrink-0 w-[70px]">
                         {new Date(l.ts * 1000).toISOString().slice(11, 19)}
                       </span>
-                      <span className="text-muted-foreground/50 flex-shrink-0 w-[50px]">[{l.type}]</span>
+                      <span
+                        className={`flex-shrink-0 w-[52px] ${
+                          l.type === "error" ? "text-destructive" : l.type === "llm" ? "text-accent" : "text-muted-foreground"
+                        }`}
+                      >
+                        [{l.type}]
+                      </span>
                       <span className="text-foreground flex-1 break-all">{l.message}</span>
                     </div>
                   ))
