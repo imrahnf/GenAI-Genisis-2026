@@ -74,7 +74,7 @@ function LifecycleNode({
     <div className="flex flex-col items-center gap-0.5">
       <Handle type="target" position={Position.Left} className="!w-2 !h-2 !border-2 !border-stone-400 !bg-white" />
       <Handle type="source" position={Position.Right} className="!w-2 !h-2 !border-2 !border-stone-400 !bg-white" />
-      <span className="text-[10px] font-medium text-stone-600 whitespace-nowrap max-w-[72px] truncate" title={tag}>
+      <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap max-w-[72px] truncate" title={tag}>
         {tag}
       </span>
       <div
@@ -235,7 +235,7 @@ function LifecycleGraphInner({
   }, [events, activeSandboxIds, setNodes, setEdges]);
 
   return (
-    <div className="lifecycle-graph h-[420px] w-full rounded-2xl border border-stone-200 bg-stone-50/50">
+    <div className="lifecycle-graph h-[420px] w-full rounded-xl border border-border bg-secondary/20">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -250,10 +250,10 @@ function LifecycleGraphInner({
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
       >
-        <Background gap={12} size={1} color="#d6d3d1" />
+        <Background gap={12} size={1} color="#404040" />
         <Controls showInteractive={false} />
         <MiniMap nodeColor={(n) => (n.data?.nodeType === "destroy" ? "#a8a29e" : n.data?.nodeType === "replay" ? "#0ea5e9" : n.data?.nodeType === "capture_start" || n.data?.nodeType === "capture_stop" ? "#e11d48" : "#059669")} />
-        <Panel position="top-left" className="text-xs font-medium text-stone-500">
+        <Panel position="top-left" className="text-xs font-medium text-muted-foreground">
           Lifecycle · {events.length} events
         </Panel>
       </ReactFlow>
